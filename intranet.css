@@ -1,0 +1,445 @@
+/* =====================================================================
+   INTRANET KACHEL GENERATOR – KBR (eigenständige Version)
+   Bildsprache aus dem Brand Hub übernommen: reines Schwarz, keine Radien,
+   Haarlinien, Rambla Alt, Versal-Labels. Einziger Unterschied: der
+   Akzent ist durchgängig Magenta (#E20074) statt des früheren Neongrüns.
+   ===================================================================== */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+@font-face {
+  font-family: 'Rambla Alt';
+  src: url('https://cdn.prod.website-files.com/63d1db62419ce00ced86330f/63d1db62419ce0d9f0863430_rambla_alt_regular.otf') format('opentype');
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Rambla Alt Oscura';
+  src: url('https://cdn.prod.website-files.com/63d1db62419ce00ced86330f/63d1db62419ce071d1863415_rambla_alt_oscura.otf') format('opentype');
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+
+:root {
+  --itk-bg:     #0a0a0a;
+  --itk-line:   rgba(255, 255, 255, 0.14);
+  --itk-line-2: rgba(255, 255, 255, 0.20);
+  --itk-line-3: rgba(255, 255, 255, 0.32);
+  /* Textstufen bewusst hell gehalten: auf #0a0a0a erreicht t3 rund 7:1,
+     t2 gut 11:1 Kontrast – auch die Nebentexte bleiben damit gut lesbar. */
+  --itk-t1:     #ffffff;
+  --itk-t2:     rgba(255, 255, 255, 0.82);
+  --itk-t3:     rgba(255, 255, 255, 0.62);
+
+  /* Akzent = Primärfarbe Magenta */
+  --itk-accent:   #E20074;
+  --itk-accent-20: rgba(226, 0, 116, 0.20);
+  --itk-accent-35: rgba(226, 0, 116, 0.35);
+  --itk-accent-60: rgba(226, 0, 116, 0.60);
+
+  /* Markenpalette – nur für UI-Anzeigen; verbindlich ist intranet.js */
+  --kbr-navy: #00114A;
+  --kbr-magenta: #E20074;
+  --kbr-forest: #0A5544;
+  --kbr-lightblue: #C8F5FF;
+  --kbr-lightgreen: #DCF59B;
+}
+
+html, body { height: 100%; }
+body {
+  background: #000; color: var(--itk-t1);
+  font-family: 'Rambla Alt', 'Inter', 'Segoe UI', sans-serif;
+  overflow: hidden; user-select: none; -webkit-user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================== Shell */
+.itk-view { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--itk-bg); overflow: hidden; }
+
+.itk-header {
+  flex: 0 0 auto; padding: 16px 24px;
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  background: var(--itk-bg); border-bottom: 1px solid var(--itk-line);
+}
+.itk-title {
+  font-family: 'Rambla Alt Oscura', 'Inter', sans-serif;
+  font-size: 18px; font-weight: 700; color: #fff; white-space: nowrap;
+}
+
+.itk-body { flex: 1; display: flex; min-height: 0; }
+
+/* Linke Spalte: Vorschau + Entscheidungsbaum, für sich scrollbar.
+   Unten Platz für die fest stehende Exportleiste. */
+.itk-editor {
+  flex: 0 0 430px; width: 430px; padding: 12px 20px 84px;
+  background: var(--itk-bg); border-right: 1px solid var(--itk-line);
+  overflow-y: auto;
+}
+
+/* ==================================================== Exportleiste */
+.itk-export-bar {
+  position: fixed; left: 0; bottom: 0; z-index: 200;
+  width: 430px; display: flex; gap: 8px; padding: 12px 20px;
+  background: rgba(10,10,10,0.94);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  border-top: 1px solid var(--itk-line); border-right: 1px solid var(--itk-line);
+}
+.itk-export-main {
+  flex: 1; min-width: 0; padding: 13px 16px; font-size: 13px;
+  justify-content: flex-start; gap: 10px;
+}
+.itk-export-main svg { width: 17px; height: 17px; }
+.itk-export-main span { flex: 1; text-align: left; }
+.itk-export-main em {
+  font-style: normal; font-size: 10px; font-weight: 400; letter-spacing: 0.06em;
+  color: rgba(255,255,255,0.75); white-space: nowrap;
+}
+.itk-export-bar .ctrl-btn:not(.primary) { padding: 13px 14px; }
+/* Rechte Spalte: Ausspielformate */
+.itk-previews { flex: 1; min-width: 0; overflow-y: auto; padding: 24px 28px; }
+
+/* ==================================================== Basis-Bedienelemente */
+.itk-label { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--itk-t2); }
+.itk-hint  { font-size: 12px; color: rgba(255,255,255,0.45); line-height: 1.6; }
+
+.ctrl-btn {
+  background: transparent; border: 1px solid var(--itk-line-3); color: var(--itk-t1);
+  border-radius: 0; padding: 7px 12px; font-family: inherit; font-size: 12px;
+  cursor: pointer; transition: border-color .15s, background .15s;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  -webkit-appearance: none; appearance: none;
+}
+.ctrl-btn svg { width: 14px; height: 14px; flex: 0 0 auto; }
+.ctrl-btn:hover { border-color: rgba(255,255,255,0.6); }
+.ctrl-btn.primary { background: var(--itk-accent); color: #fff; border-color: var(--itk-accent); font-weight: 700; }
+.ctrl-btn.primary:hover { background: #ff0d87; border-color: #ff0d87; }
+.ctrl-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+.icon-btn {
+  background: transparent; border: 1px solid var(--itk-line-3); color: var(--itk-t1);
+  border-radius: 0; width: 30px; height: 30px; padding: 0; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color .15s, background .15s; font-family: inherit;
+  -webkit-appearance: none; appearance: none; flex: 0 0 auto;
+}
+.icon-btn svg { width: 14px; height: 14px; }
+.icon-btn:hover { border-color: rgba(255,255,255,0.6); }
+.icon-btn.accent { background: var(--itk-accent); border-color: var(--itk-accent); color: #fff; }
+.icon-btn.accent:hover { background: #ff0d87; border-color: #ff0d87; }
+.icon-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+.itk-btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.itk-btn-row .ctrl-btn { flex: 1 1 auto; }
+
+select.itk-select, input.itk-input {
+  width: 100%; padding: 8px 10px; border-radius: 0;
+  background: #141414; border: 1px solid var(--itk-line-3); color: var(--itk-t1);
+  font-family: inherit; font-size: 12px; outline: none;
+}
+select.itk-select:focus, input.itk-input:focus { border-color: var(--itk-accent); }
+select.itk-select option { background: #141414; }
+
+input[type=range] {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 0;
+  background: rgba(255,255,255,0.18); outline: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 0;
+  background: var(--itk-accent); border: 2px solid rgba(255,255,255,0.3);
+}
+input[type=range]::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 0;
+  background: var(--itk-accent); border: 2px solid rgba(255,255,255,0.3);
+}
+.itk-val { min-width: 38px; text-align: right; color: var(--itk-accent); font-weight: 700; font-size: 11px; font-variant-numeric: tabular-nums; }
+
+.itk-slider-row { display: flex; align-items: center; gap: 10px; }
+.itk-slider-row input[type=range] { flex: 1; min-width: 0; }
+
+/* ==================================================== Motive als Seiten */
+.itk-under-stage { display: flex; align-items: center; gap: 12px; margin-top: 9px; }
+.itk-random { padding: 6px 12px; }
+.itk-pages { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; flex-wrap: wrap; }
+.itk-page {
+  position: relative; width: 28px; height: 28px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--itk-t3); transition: color .15s;
+}
+.itk-page svg { position: absolute; inset: 0; width: 28px; height: 28px; }
+.itk-page-no { position: relative; font-size: 10px; font-weight: 700; margin-top: 4px; }
+.itk-page:hover { color: #fff; }
+.itk-page.active { color: var(--itk-accent); }
+.itk-page-del {
+  position: absolute; top: -4px; right: -5px; width: 13px; height: 13px;
+  background: var(--itk-accent); color: #fff; font-size: 10px; line-height: 13px;
+  text-align: center; display: none; z-index: 2;
+}
+.itk-page:hover .itk-page-del { display: block; }
+.itk-page-add {
+  width: 24px; height: 24px; background: transparent; padding: 0;
+  border: 1px dashed var(--itk-line-3); color: var(--itk-t3); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: all .15s;
+}
+.itk-page-add:hover { border-color: var(--itk-accent); color: var(--itk-accent); }
+.itk-page-add svg { width: 13px; height: 13px; }
+
+/* ==================================================== Vorschaufenster */
+.itk-sticky-preview {
+  position: sticky; top: 0; z-index: 5; background: var(--itk-bg);
+  margin: -12px -20px 16px -20px; padding: 4px 20px 14px;
+  border-bottom: 1px solid var(--itk-line-2);
+}
+.itk-canvas-wrap {
+  position: relative; width: 100%; aspect-ratio: 1180/623;
+  background: #000; border: 1px solid var(--itk-line-2); overflow: hidden; cursor: crosshair;
+}
+.itk-canvas-wrap.dragover { border-color: var(--itk-accent); }
+.itk-canvas-wrap canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+/* Leerzustand liegt über dem bereits weiß gefüllten Motiv-Canvas – deshalb
+   dunkle Schrift auf hellem Schleier statt heller Schrift auf Weiß. */
+.itk-drop-hint {
+  position: absolute; inset: 0; display: flex; flex-direction: column; gap: 8px;
+  align-items: center; justify-content: center; text-align: center;
+  background: rgba(255,255,255,0.88); color: #3d3d46;
+  pointer-events: none; transition: opacity .15s;
+}
+.itk-drop-hint.hidden { opacity: 0; }
+.itk-drop-hint svg { width: 30px; height: 30px; opacity: .55; }
+.itk-drop-hint p { font-size: 12px; font-weight: 600; }
+.itk-drop-hint .sub { font-size: 11px; font-weight: 400; color: #6b6b75; }
+/* Der Bedienhinweis liegt im Motiv und erscheint nur beim Überfahren. Er sitzt
+   in einer eigenen deckenden Leiste statt auf einem Schleier über dem Bild –
+   so bleibt er auf jedem Foto lesbar, ohne das Motiv abzudunkeln. Solange noch
+   kein Bild da ist (Drop-Hinweis sichtbar), bleibt er weg. */
+.itk-stage-hint {
+  position: absolute; left: 8px; right: 8px; top: 8px; z-index: 2;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 7px 12px; background: rgba(10, 10, 10, 0.52);
+  -webkit-backdrop-filter: blur(14px) saturate(0.85);
+  backdrop-filter: blur(14px) saturate(0.85);
+  font-size: 10.5px; line-height: 1.4; color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  text-align: center; opacity: 0; transition: opacity .25s; pointer-events: none;
+}
+.itk-canvas-wrap:hover .itk-drop-hint.hidden ~ .itk-stage-hint { opacity: 1; }
+.itk-stage-hint svg { width: 12px; height: 12px; flex: 0 0 auto; color: var(--itk-accent); }
+.itk-stage-hint b { color: #fff; font-weight: 700; }
+
+/* ==================================================== Entscheidungsbaum */
+.itk-steps { display: flex; flex-direction: column; }
+
+.itk-step { border: 1px solid var(--itk-line); border-bottom: none; background: transparent; }
+.itk-step:last-child { border-bottom: 1px solid var(--itk-line); }
+.itk-step.open { background: rgba(255,255,255,0.035); }
+.itk-step.locked { opacity: .38; }
+.itk-step.locked .itk-step-head { cursor: not-allowed; }
+
+/* Bewusst nur so hoch wie das Nummernquadrat: fünf Reiter untereinander
+   sollen nicht die halbe Spalte fressen. Die Luft kommt darunter, im
+   geöffneten Inhalt. */
+.itk-step-head {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 5px 12px; background: none; border: none; cursor: pointer;
+  color: inherit; font-family: inherit; text-align: left;
+}
+.itk-step-num {
+  flex: 0 0 auto; width: 20px; height: 20px; border: 1px solid var(--itk-line-3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--itk-t2); transition: all .18s;
+}
+.itk-step.done .itk-step-num { background: var(--itk-accent); border-color: var(--itk-accent); color: #fff; }
+.itk-step-title { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.itk-step-sub {
+  margin-left: auto; font-size: 10.5px; color: var(--itk-t3); text-align: right;
+  max-width: 48%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.itk-step-chev { flex: 0 0 auto; width: 13px; height: 13px; color: var(--itk-t3); transition: transform .2s; }
+.itk-step.open .itk-step-chev { transform: rotate(180deg); }
+
+/* Der geöffnete Reiter ist vollflächig Magenta – so ist auf einen Blick klar,
+   an welcher Stelle des Entscheidungsbaums man gerade steht. */
+.itk-step.open > .itk-step-head { background: var(--itk-accent); color: #fff; }
+.itk-step.open > .itk-step-head .itk-step-sub  { color: rgba(255,255,255,0.88); }
+.itk-step.open > .itk-step-head .itk-step-chev { color: #fff; }
+/* Im aktiven Reiter trägt schon die Fläche die Aussage – das Kästchen um die
+   Ziffer wäre dort nur noch Rahmen im Rahmen. */
+.itk-step.open > .itk-step-head .itk-step-num  {
+  background: transparent; border-color: transparent; color: #fff;
+}
+
+/* Luft zwischen Reiterkopf und erster Zeile des Inhalts. */
+.itk-step-body { display: none; padding: 15px 13px 17px; flex-direction: column; gap: 14px; }
+.itk-step.open .itk-step-body { display: flex; }
+.itk-field { display: flex; flex-direction: column; gap: 8px; }
+.itk-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+/* ==================================================== Auswahlraster */
+.itk-choice-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+.itk-choice-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.itk-choice { cursor: pointer; background: transparent; border: none; padding: 0; font-family: inherit; }
+.itk-choice-vis {
+  position: relative; width: 100%; aspect-ratio: 1180/623; overflow: hidden;
+  background: #141414; border: 1px solid var(--itk-line-3); transition: border-color .15s;
+}
+.itk-choice:hover .itk-choice-vis { border-color: rgba(255,255,255,0.6); }
+.itk-choice.active .itk-choice-vis { border-color: var(--itk-accent); }
+.itk-choice-vis i { position: absolute; display: block; }
+.itk-choice-svg { display: block; width: 100%; height: 100%; }
+.itk-choice-vis .ph { background: rgba(255,255,255,0.22); }
+.itk-choice-vis .tl { background: var(--itk-accent-35); }
+.itk-choice.active .itk-choice-vis .tl { background: var(--itk-accent-60); }
+.itk-choice-vis .ic { background: #fff; box-shadow: 0 0 0 1.5px #141414; }
+.itk-choice-vis .sw { background: var(--kbr-lightgreen); }
+.itk-choice-cap {
+  margin-top: 4px; font-size: 8.5px; line-height: 1.3; text-transform: uppercase;
+  letter-spacing: 0.03em; color: var(--itk-t3);
+}
+.itk-choice.active .itk-choice-cap { color: var(--itk-accent); }
+
+/* Farbchips */
+.itk-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.itk-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 6px;
+  border: 1px solid var(--itk-line-3); background: transparent; color: var(--itk-t2);
+  font-family: inherit; font-size: 10.5px; letter-spacing: 0.05em; text-transform: uppercase;
+  cursor: pointer; transition: all .15s;
+}
+.itk-chip i { width: 13px; height: 13px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.25); }
+.itk-chip:hover { border-color: rgba(255,255,255,0.6); color: #fff; }
+.itk-chip.active { border-color: var(--itk-accent); color: #fff; }
+
+.itk-note {
+  font-size: 11px; line-height: 1.55; color: rgba(255,255,255,0.5);
+  border-left: 2px solid var(--itk-accent); padding: 6px 0 6px 10px;
+}
+.itk-note b { color: rgba(255,255,255,0.85); font-weight: 700; }
+
+.itk-check { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--itk-t1); cursor: pointer; padding-bottom: 8px; }
+.itk-check input { accent-color: var(--itk-accent); width: 15px; height: 15px; cursor: pointer; }
+.itk-check.disabled { opacity: .4; cursor: default; }
+.itk-check.disabled input { cursor: default; }
+
+/* ==================================================== Vorlagen */
+.itk-tpl-list { display: flex; flex-direction: column; gap: 6px; max-height: 210px; overflow-y: auto; }
+.itk-tpl {
+  display: flex; align-items: center; gap: 9px; padding: 6px;
+  border: 1px solid var(--itk-line); transition: border-color .15s;
+}
+.itk-tpl:hover { border-color: var(--itk-line-3); }
+.itk-tpl-vis { flex: 0 0 auto; width: 54px; aspect-ratio: 1180/623; position: relative; overflow: hidden; background: #141414; }
+.itk-tpl-vis i { position: absolute; display: block; }
+.itk-tpl-name { font-size: 11.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.itk-tpl-rename { font-size: 11.5px; font-weight: 700; padding: 3px 6px; }
+.itk-tpl-meta { font-size: 9.5px; color: var(--itk-t3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.itk-tpl-actions { display: flex; gap: 4px; flex: 0 0 auto; }
+.itk-tpl-actions .icon-btn { width: 26px; height: 26px; }
+.itk-tpl-empty { font-size: 11px; color: var(--itk-t3); line-height: 1.6; }
+
+/* ==================================================== Farb-Popup */
+.itk-pop {
+  position: fixed; z-index: 300; display: none; flex-direction: column; gap: 9px;
+  min-width: 200px; padding: 12px; background: #141414;
+  border: 1px solid var(--itk-line-3); box-shadow: 0 16px 46px rgba(0,0,0,.85);
+}
+.itk-pop.show { display: flex; }
+.itk-pop-title { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--itk-accent); }
+.itk-pop-swatches { display: flex; gap: 6px; }
+.itk-pop-sw {
+  width: 38px; height: 38px; border: 1px solid rgba(255,255,255,0.25);
+  cursor: pointer; padding: 0; transition: outline-color .12s;
+  outline: 2px solid transparent; outline-offset: 2px;
+}
+.itk-pop-sw:hover { outline-color: rgba(255,255,255,0.4); }
+.itk-pop-sw.active { outline-color: #fff; }
+.itk-pop-rule { font-size: 10.5px; line-height: 1.5; color: var(--itk-t3); max-width: 230px; }
+
+/* ==================================================== Vorschauspalte */
+.itk-preview-eyebrow { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--itk-accent); margin-bottom: 4px; }
+.itk-preview-sub { font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 20px; }
+.itk-widget-bar {
+  display: flex; align-items: flex-end; gap: 24px; flex-wrap: wrap;
+  padding-bottom: 18px; margin-bottom: 22px; border-bottom: 1px solid var(--itk-line-2);
+}
+.itk-widget-field { flex: 1 1 240px; max-width: 320px; }
+.itk-widget-field .itk-label { display: block; margin-bottom: 10px; }
+
+.itk-preview-grid { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+.itk-preview-item { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.itk-preview-item canvas { display: block; background: #141414; border: 1px solid var(--itk-line-2); }
+.itk-preview-name { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.8); text-align: center; }
+.itk-preview-size { font-size: 10px; color: rgba(255,255,255,0.4); text-align: center; font-variant-numeric: tabular-nums; }
+.itk-preview-note { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--itk-accent); text-align: center; }
+.itk-preview-group-label { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--itk-t2); margin: 0 0 12px; }
+.itk-preview-main-panel {
+  background: rgba(255,255,255,0.04); border: 1px solid var(--itk-line);
+  padding: 16px 18px 18px; margin-bottom: 26px;
+}
+.itk-preview-main-panel .itk-preview-group-label { color: var(--itk-accent); }
+.itk-preview-row { margin-bottom: 26px; }
+.itk-preview-row:last-child { margin-bottom: 0; }
+
+/* ==================================================== Toast */
+.itk-toast {
+  position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(12px);
+  background: var(--itk-accent); color: #fff; padding: 10px 22px; border-radius: 0;
+  font-size: 13px; font-weight: 700; z-index: 500; opacity: 0; pointer-events: none;
+  transition: opacity .2s, transform .2s;
+}
+.itk-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ==================================================== Tutorial */
+.itk-tut-mask { position: fixed; inset: 0; z-index: 400; display: none; }
+.itk-tut-mask.show { display: block; }
+.itk-tut-hole {
+  position: fixed; box-shadow: 0 0 0 9999px rgba(0,0,0,.80), 0 0 0 1px var(--itk-accent);
+  transition: all .3s cubic-bezier(.4,0,.2,1); pointer-events: none;
+}
+.itk-tut-card {
+  position: fixed; width: 340px; max-width: calc(100vw - 32px); padding: 16px 18px 14px;
+  background: #141414; border: 1px solid var(--itk-line-3);
+  box-shadow: 0 22px 60px rgba(0,0,0,.85); transition: all .3s cubic-bezier(.4,0,.2,1);
+}
+.itk-tut-close {
+  position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; padding: 0;
+  background: transparent; border: 1px solid transparent; color: var(--itk-t3);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+}
+.itk-tut-close svg { width: 14px; height: 14px; }
+.itk-tut-close:hover { color: #fff; border-color: var(--itk-line-3); }
+.itk-tut-step { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--itk-accent); }
+.itk-tut-card h3 { font-family: 'Rambla Alt Oscura', 'Inter', sans-serif; font-size: 15px; font-weight: 700; margin: 6px 0 8px; }
+.itk-tut-card p { font-size: 12px; line-height: 1.6; color: rgba(255,255,255,0.62); }
+.itk-tut-card p + p { margin-top: 7px; }
+.itk-tut-card b { color: #fff; font-weight: 700; }
+.itk-tut-nav { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+.itk-tut-nav .itk-spacer { flex: 1; }
+.itk-tut-dots { display: flex; gap: 3px; }
+.itk-tut-dots i { width: 5px; height: 5px; background: rgba(255,255,255,0.2); display: block; }
+.itk-tut-dots i.on { background: var(--itk-accent); }
+.itk-tut-skip { background: none; border: none; color: var(--itk-t3); font-family: inherit; font-size: 11px; cursor: pointer; padding: 4px; }
+.itk-tut-skip:hover { color: #fff; }
+
+/* ==================================================== Mobile */
+@media (max-width: 900px) {
+  html, body { height: auto; overflow: visible; }
+  /* overflow: hidden am Container würde position: sticky wirkungslos machen –
+     der Container wäre dann der Scroll-Kontext und kann selbst nicht scrollen. */
+  .itk-view { position: static; height: auto; min-height: 100vh; overflow: visible; }
+  .itk-body { flex-direction: column; }
+  .itk-editor { flex: 0 0 auto; width: 100%; overflow: visible; border-right: none; border-bottom: 1px solid var(--itk-line); }
+  .itk-previews { width: 100%; overflow: visible; padding: 20px 20px 92px; }
+  /* Das Motiv bleibt beim Scrollen oben stehen – ohne Sichtkontrolle wäre
+     jede Einstellung weiter unten ein Blindflug. */
+  .itk-sticky-preview {
+    position: sticky; top: 0; z-index: 20; margin: -12px -20px 16px; padding-top: 8px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.55);
+  }
+  /* Export bleibt auch mobil dauerhaft erreichbar */
+  .itk-export-bar { width: 100%; border-right: none; }
+  /* Seitenzahlen links, Zufall rechts – beides schmal genug für eine Zeile. */
+  .itk-under-stage { flex-wrap: wrap; gap: 8px; }
+  /* Vorschauen behalten ihre Ausspielgröße und brechen nur um. Ein Format,
+     das breiter ist als das Display, wird nicht hochskaliert, sondern in
+     seiner Zeile seitlich scrollbar. */
+  .itk-preview-grid { flex-wrap: wrap; justify-content: flex-start; overflow-x: auto; }
+  .ctrl-btn { min-height: 38px; }
+}
