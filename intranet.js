@@ -1143,7 +1143,13 @@ let itkLetztesTestmotiv = -1;
 function itkDemoImage() {
   const liste = (typeof ITK_TESTMOTIVE !== 'undefined' && ITK_TESTMOTIVE.length)
     ? ITK_TESTMOTIVE : null;
-  if (!liste) return itkDemoFallback();
+  if (!liste) {
+    // Lautlos auf den Platzhalter zurückzufallen sieht aus wie ein Fehler im
+    // Werkzeug. Beim Veröffentlichen fehlt die Datei am ehesten, weil sie
+    // nicht mit hochgeladen wurde.
+    itkToast('testmotive.js nicht geladen – Platzhalter statt Beispielmotiv');
+    return itkDemoFallback();
+  }
   let i = Math.floor(Math.random() * liste.length);
   if (liste.length > 1 && i === itkLetztesTestmotiv) i = (i + 1) % liste.length;
   itkLetztesTestmotiv = i;
