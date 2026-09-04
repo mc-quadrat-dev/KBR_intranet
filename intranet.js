@@ -158,11 +158,32 @@ const ITK_AREAS = [
 
   { id: 'icon-left',   label: 'Von links',  icon: true, min: 1, split: { type: 'left',   x: 0.50 } },
   { id: 'icon-right',  label: 'Von rechts', icon: true, min: 1, split: { type: 'right',  x: 0.50 } },
-  { id: 'icon-bottom', label: 'Von unten',  icon: true, min: 1, split: { type: 'bottom', y: 0.50 } }
+  { id: 'icon-bottom', label: 'Von unten',  icon: true, min: 1, split: { type: 'bottom', y: 0.50 } },
+
+  /* Ohne Foto: die ganze Fläche wird in Kacheln geteilt. Erreichbar nur über
+     den Knopf „Kein Bild“ im Reiter Bild, deshalb aus der Auswahl versteckt –
+     im Bereichsraster hätte er keine sinnvolle Vorschau. */
+  { id: 'full', label: 'Ganze Fläche', icon: 'both', min: 1, versteckt: true,
+    split: { type: 'full' } }
 ];
 function itkArea(id) { return ITK_AREAS.find(a => a.id === id); }
 function itkAreasFor(hasIcon) {
-  return ITK_AREAS.filter(a => a.icon === 'both' || a.icon === hasIcon);
+  return ITK_AREAS.filter(a => !a.versteckt && (a.icon === 'both' || a.icon === hasIcon));
+}
+/* Kachelmodus ohne Foto – dort und nur dort dürfen Bilder in einzelne
+   Kacheln gelegt werden. */
+function itkIsFullTiles(d) { return d.areaId === 'full'; }
+
+/* Zurück aus dem Kachelmodus in ein Fotolayout. Der Bereich, der vor dem
+   Umschalten galt, kommt wieder – sonst der Standard. Ohne diesen Rückweg
+   wäre „Kein Bild“ eine Sackgasse: ein hochgeladenes Foto läge unsichtbar
+   unter der vollflächigen Kachelfläche. */
+function itkLeaveFullTiles(m) {
+  const d = m.design;
+  if (!itkIsFullTiles(d)) return;
+  const zurueck = d.areaBeforeFull || 'bottom-s';
+  d.areaBeforeFull = null;
+  itkApplyArea(m, zurueck);
 }
 
 /* Foto-Restfläche und Startrechtecke der Kachelfläche. Die halbe Kontur
@@ -171,6 +192,9 @@ function itkAreasFor(hasIcon) {
 function itkRegions(split, W, H, gap) {
   const g = gap / 2;
   if (!split) return { photo: { x: 0, y: 0, w: W, h: H }, seeds: [] };
+  // Ganze Fläche: kein Foto darunter, alles ist Kachelbereich.
+  if (split.type === 'full') return { photo: { x: 0, y: 0, w: 0, h: 0 },
+                                      seeds: [ { x: 0, y: 0, w: W, h: H } ] };
   if (split.type === 'bottom') {
     const y = split.y * H;
     return { photo: { x: 0, y: 0, w: W, h: y - g },
@@ -218,6 +242,29 @@ const ITK_ICON_MAX_BYTES = 300 * 1024;
    jeweils gültige Sekundärfarbe ersetzt – deshalb ein Cache pro Farbe. */
 const itkIconSrc   = {};   // key -> { svg, vbW, vbH }
 const itkIconCache = {};   // 'key|#RRGGBB' -> { img, ready, vbW, vbH }
+
+/* Bilder, die in einzelnen Kacheln liegen. Im Design steht nur die Data-URL
+   (JSON-fähig, überlebt Vorlagen und die Hover-Vorschau), das dekodierte
+   Bild hängt hier daneben. */
+const itkTileImgs = {};    // src -> { img, ready }
+function itkTileImage(src) {
+  if (!src) return null;
+  const hit = itkTileImgs[src];
+  if (hit) return hit.ready ? hit.img : null;
+  const rec = { img: new Image(), ready: false };
+  itkTileImgs[src] = rec;
+  rec.img.onload = () => { rec.ready = true; itkRedraw(); };
+  rec.img.onerror = () => { rec.ready = false; };
+  rec.img.src = src;
+  return null;
+}
+
+/* Bild formatfüllend in ein Rechteck legen (wie CSS cover). */
+function itkCoverFit(img, r) {
+  const s = Math.max(r.w / img.width, r.h / img.height);
+  const w = img.width * s, h = img.height * s;
+  return { x: r.x + (r.w - w) / 2, y: r.y + (r.h - h) / 2, w: w, h: h };
+}
 let   itkCustomIconLabel = 'Eigenes SVG';
 
 function itkSanitizeIconSVG(svgText) {
@@ -277,6 +324,7 @@ function itkNewDesign() {
     iconBg: KBR.magenta,
     iconFg: KBR.white,
     areaId: 'bottom-s',
+    areaBeforeFull: null, // Bereich vor dem Umschalten auf „Kein Bild“
     tileCount: 3,
     tiles: [],            // { x, y, w, h, color }
     swoosh: 'none',       // 'none' | 'photo' | 'tile' | 'mask'
@@ -305,6 +353,7 @@ let itkShowDanger = false;   // Schutzzonen sind eine Prüfhilfe, kein Grundzust
 let itkHitRegions = [];          // Treffer-Flächen für den Doppelklick
 let itkPreviewCanvases = [];
 let itkPopTarget = null;
+let itkTileTarget = -1;   // Kachel, die gerade ein Bild bekommen soll
 
 let itkCanvas, itkCtx, itkStage, itkDropHint;
 
@@ -393,11 +442,15 @@ function itkRebuildTiles(m, keepColors) {
   if (!area || !area.split) { d.tiles = []; return; }
 
   const prev = keepColors ? d.tiles.map(t => t.color) : null;
+  // Eingesetzte Kachelbilder überleben auch das Würfeln – sie stillschweigend
+  // zu verlieren wäre für den Nutzer ein Datenverlust.
+  const prevSrc = d.tiles.map(t => t.src);
   const { seeds } = itkRegions(area.split, ITK_W, ITK_H, ITK_GAP);
   const n = Math.max(area.min, Math.min(5, d.tileCount));
   d.tiles = itkSplitTiles(seeds, n, Math.random);
   itkColorTiles(d.tiles, Math.random);
   if (prev) d.tiles.forEach((t, i) => { if (prev[i]) t.color = prev[i]; });
+  d.tiles.forEach((t, i) => { if (prevSrc[i]) t.src = prevSrc[i]; });
   itkEnforceSwooshColor(m);
 }
 
@@ -432,13 +485,20 @@ function itkDrawPhoto(ctx, m, clip) {
   ctx.restore();
 }
 
-/* Swoosh in ein Zielrechteck legen. mode 'contain' passt ihn hinein,
-   'bleed' lässt ihn bewusst über die Kanten hinauslaufen. */
-function itkSwooshTransform(ctx, rect, factor) {
+/* Lage des Swooshs als reine Zahlen. Canvas und SVG-Export rechnen damit
+   dasselbe, statt die Formel zweimal zu führen. */
+function itkSwooshPlacement(rect, factor) {
   const s = Math.min(rect.w / ITK_SWOOSH_VB.w, rect.h / ITK_SWOOSH_VB.h) * factor;
   const w = ITK_SWOOSH_VB.w * s, h = ITK_SWOOSH_VB.h * s;
-  ctx.translate(rect.x + (rect.w - w) / 2, rect.y + (rect.h - h) / 2);
-  ctx.scale(s, s);
+  return { s: s, tx: rect.x + (rect.w - w) / 2, ty: rect.y + (rect.h - h) / 2 };
+}
+
+/* Swoosh in ein Zielrechteck legen. factor > 1 lässt ihn bewusst über die
+   Kanten hinauslaufen. */
+function itkSwooshTransform(ctx, rect, factor) {
+  const p = itkSwooshPlacement(rect, factor);
+  ctx.translate(p.tx, p.ty);
+  ctx.scale(p.s, p.s);
 }
 
 /* Lage des großen Masken-Swooshs, 1:1 aus der gelieferten Layout-Vorlage
@@ -469,73 +529,154 @@ function itkMaskPhotoTransform(ctx) {
   ctx.translate(ITK_MASK.photoX, ITK_MASK.photoY);
 }
 
-function itkDrawMotif(ctx, m, collect) {
+// ---------------------------------------------------------------------
+// 8b. EBENENLISTE
+// Die Zeichnung liegt als Liste benannter Ebenen vor statt als ein Block
+// Zeichenbefehle. Vorschau, JPG, PSD und SVG greifen auf dieselbe Liste zu –
+// dadurch können Bildschirm und exportierte Datei gar nicht auseinander-
+// laufen. Die Reihenfolge der Liste ist zugleich Zeichenreihenfolge,
+// Stapelreihenfolge in Photoshop und Reihenfolge der Trefferflächen.
+//
+// Vertrag für draw(): Der Kontext steht unverdreht 1:1 auf einem
+// 1180×623-Ziel – der Maskenzweig verlässt sich auf setTransform(1,0,0,1,0,0)
+// – und wird ausgeglichen hinterlassen, jedes save() hat sein restore().
+//
+// Nicht zwischenspeichern: itkHoverPreview tauscht m.design vorübergehend
+// aus. Eine Merkliste nach m.id würde die Hover-Vorschau stillschweigend
+// einfrieren.
+// ---------------------------------------------------------------------
+function itkBuildLayers(m) {
   const d = m.design;
   const area = itkArea(d.areaId);
   const split = area ? area.split : null;
-  if (collect) itkHitRegions = [];
+  const L = [];
 
-  ctx.clearRect(0, 0, ITK_W, ITK_H);
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, ITK_W, ITK_H);
+  // Ebene ganz unten: Die weißen Konturen sind kein eigenes Objekt, sondern
+  // genau diese Fläche, die zwischen den Kacheln durchscheint.
+  L.push({
+    id: 'bg', name: 'Hintergrund (weiß)', group: null, hit: null,
+    draw: ctx => { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, ITK_W, ITK_H); },
+    svg: () => '<rect x="0" y="0" width="' + ITK_W + '" height="' + ITK_H + '" fill="#FFFFFF"/>'
+  });
 
   // --- Sonderfall: Swoosh als Maske. Der Swoosh ersetzt hier das Layout –
   // farbige Vollfläche, darauf eine farbige Kante, darin das Foto.
   if (d.swoosh === 'mask') {
-    ctx.fillStyle = d.maskBase;
-    ctx.fillRect(0, 0, ITK_W, ITK_H);
-
-    // Die Kante entsteht aus einer zweiten, minimal größeren und leicht
-    // versetzten Kopie desselben Pfades. Ein gleichmäßiger Stroke wäre
-    // überall gleich dick; die versetzte Kopie läuft an den Spitzen des
-    // Swooshs keilförmig aus – genau wie in der Vorlage.
-    ctx.save();
-    itkMaskEdgeTransform(ctx);
-    ctx.fillStyle = d.swooshColor;
-    ctx.fill(ITK_SWOOSH_PATH);
-    ctx.restore();
-
-    ctx.save();
-    itkMaskPhotoTransform(ctx);
-    ctx.clip(ITK_MASK_PHOTO_PATH);
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    itkDrawPhoto(ctx, m, null);
-    ctx.restore();
-
-    if (collect) {
-      itkHitRegions.push({ kind: 'maskBase', mask: true });
-      itkHitRegions.push({ kind: 'maskEdge', mask: true });
-    }
-    itkDrawIcon(ctx, m, collect);
-    return;
+    L.push({
+      id: 'maskBase', name: 'Grundfläche ' + KBR_NAMES[d.maskBase], group: 'Maske',
+      hit: { kind: 'maskBase', mask: true },
+      draw: ctx => { ctx.fillStyle = d.maskBase; ctx.fillRect(0, 0, ITK_W, ITK_H); },
+      svg: () => '<rect x="0" y="0" width="' + ITK_W + '" height="' + ITK_H +
+                 '" fill="' + d.maskBase + '"/>'
+    });
+    L.push({
+      id: 'maskEdge', name: 'Swoosh-Kante ' + KBR_NAMES[d.swooshColor], group: 'Maske',
+      hit: { kind: 'maskEdge', mask: true },
+      draw: ctx => {
+        ctx.save();
+        itkMaskEdgeTransform(ctx);
+        ctx.fillStyle = d.swooshColor;
+        ctx.fill(ITK_SWOOSH_PATH);
+        ctx.restore();
+      },
+      svg: () => '<g transform="translate(' + ITK_MASK.edgeX + ',' + ITK_MASK.edgeY +
+                 ') scale(' + ITK_MASK.edgeScale + ')"><path d="' + ITK_SWOOSH_D +
+                 '" fill="' + d.swooshColor + '"/></g>'
+    });
+    const mcid = 'itkclip-' + m.id + '-maskphoto';
+    L.push({
+      id: 'photo', name: 'Foto', group: 'Maske', hit: null,
+      draw: ctx => {
+        ctx.save();
+        itkMaskPhotoTransform(ctx);
+        ctx.clip(ITK_MASK_PHOTO_PATH);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        itkDrawPhoto(ctx, m, null);
+        ctx.restore();
+      },
+      // In SVG löst sich der Koordinatenwechsel von selbst: der Clip lebt im
+      // clipPath, das Bild trägt seine eigene Transformation.
+      defs: () => '<clipPath id="' + mcid + '"><path d="' + ITK_MASK_PHOTO_D +
+                  '" transform="translate(' + ITK_MASK.photoX + ',' + ITK_MASK.photoY +
+                  ')"/></clipPath>',
+      svg: () => itkPhotoSVG(m, 'url(#' + mcid + ')')
+    });
+    itkPushIconLayers(L, m);
+    return L;
   }
 
   // --- Regelfall: Foto auf der Restfläche, Kacheln daneben.
   const { photo } = itkRegions(split, ITK_W, ITK_H, ITK_GAP);
-  itkDrawPhoto(ctx, m, split ? photo : null);
+  const pcid = 'itkclip-' + m.id + '-photo';
+  L.push({
+    id: 'photo', name: 'Foto', group: null, hit: null,
+    draw: ctx => { itkDrawPhoto(ctx, m, split ? photo : null); },
+    defs: split ? () => itkClipRectSVG(pcid, photo) : null,
+    svg: () => itkPhotoSVG(m, split ? 'url(#' + pcid + ')' : null)
+  });
 
+  // Bilder in Kacheln gehören zum Modus ohne Foto. Kehrt man zu einem
+  // Fotolayout zurück, bleiben sie zwar erhalten, werden aber nicht gezeigt –
+  // ein Wechsel zurück holt sie unverändert wieder hervor.
+  const zeigeKachelbild = itkIsFullTiles(d);
   d.tiles.forEach((t, i) => {
-    ctx.fillStyle = t.color;
-    ctx.fillRect(t.x, t.y, t.w, t.h);
-    if (collect) itkHitRegions.push({ kind: 'tile', index: i, rect: t });
+    const kcid = 'itkclip-' + m.id + '-tile' + i;
+    const tsrc = zeigeKachelbild ? t.src : null;
+    L.push({
+      id: 'tile' + i, group: 'Kacheln',
+      name: 'Kachel ' + (i + 1) + (tsrc ? ' – Bild' : ' – ' + KBR_NAMES[t.color]),
+      hit: { kind: 'tile', index: i, rect: t },
+      draw: ctx => {
+        // Solange ein eingesetztes Bild noch lädt, steht die Farbe – so
+        // bleibt die Kachel nie leer.
+        const img = itkTileImage(tsrc);
+        if (!img) { ctx.fillStyle = t.color; ctx.fillRect(t.x, t.y, t.w, t.h); return; }
+        ctx.save();
+        ctx.beginPath(); ctx.rect(t.x, t.y, t.w, t.h); ctx.clip();
+        const f = itkCoverFit(img, t);
+        ctx.drawImage(img, f.x, f.y, f.w, f.h);
+        ctx.restore();
+      },
+      defs: () => (tsrc ? itkClipRectSVG(kcid, t) : ''),
+      svg: () => {
+        const img = itkTileImage(tsrc);
+        if (!img) {
+          return '<rect x="' + itkNum(t.x) + '" y="' + itkNum(t.y) + '" width="' + itkNum(t.w) +
+                 '" height="' + itkNum(t.h) + '" fill="' + t.color + '"/>';
+        }
+        const f = itkCoverFit(img, t);
+        const href = itkXmlAttr(tsrc);
+        return '<g clip-path="url(#' + kcid + ')"><image href="' + href + '" xlink:href="' + href +
+               '" x="' + itkNum(f.x) + '" y="' + itkNum(f.y) + '" width="' + itkNum(f.w) +
+               '" height="' + itkNum(f.h) + '" preserveAspectRatio="none"/></g>';
+      }
+    });
   });
 
   if (d.swoosh === 'tile' && d.tiles.length === 1) {
     const t = d.tiles[0];
-    ctx.save();
-    ctx.beginPath(); ctx.rect(t.x, t.y, t.w, t.h); ctx.clip();
-    ctx.save();
-    // Bewusst über die Kachel hinaus skaliert: In der Vorlage läuft der
-    // Swoosh am Rand aus dem Feld heraus, statt darin zu schwimmen.
-    itkSwooshTransform(ctx, t, 1.35);
-    ctx.fillStyle = d.swooshColor;
-    ctx.fill(ITK_SWOOSH_PATH);
-    ctx.restore();
-    ctx.restore();
-    // Nach der Kachel registriert und als Pfad geprüft: der Doppelklick trifft
-    // den Swoosh nur dort, wo er wirklich liegt – daneben bleibt die Kachel
-    // erreichbar.
-    if (collect) itkHitRegions.push({ kind: 'swooshTile', tile: t, swooshFit: 1.35 });
+    const tcid = 'itkclip-' + m.id + '-swooshtile';
+    L.push({
+      id: 'swooshTile', name: 'Swoosh in Kachel', group: null,
+      // Nach der Kachel registriert und als Pfad geprüft: der Doppelklick
+      // trifft den Swoosh nur dort, wo er wirklich liegt – daneben bleibt die
+      // Kachel erreichbar.
+      hit: { kind: 'swooshTile', tile: t, swooshFit: 1.35 },
+      draw: ctx => {
+        ctx.save();
+        ctx.beginPath(); ctx.rect(t.x, t.y, t.w, t.h); ctx.clip();
+        ctx.save();
+        // Bewusst über die Kachel hinaus skaliert: In der Vorlage läuft der
+        // Swoosh am Rand aus dem Feld heraus, statt darin zu schwimmen.
+        itkSwooshTransform(ctx, t, 1.35);
+        ctx.fillStyle = d.swooshColor;
+        ctx.fill(ITK_SWOOSH_PATH);
+        ctx.restore();
+        ctx.restore();
+      },
+      defs: () => itkClipRectSVG(tcid, t),
+      svg: () => itkSwooshSVG(t, 1.35, d.swooshColor, 'url(#' + tcid + ')')
+    });
   }
 
   // --- Swoosh direkt auf dem Foto: rechtsbündig auf der Fotofläche.
@@ -544,43 +685,135 @@ function itkDrawMotif(ctx, m, collect) {
     const h = p.h * 0.76;
     const w = h * (ITK_SWOOSH_VB.w / ITK_SWOOSH_VB.h);
     const rect = { x: p.x + p.w - w - p.w * 0.02, y: p.y + (p.h - h) / 2, w, h };
-    ctx.save();
-    ctx.beginPath(); ctx.rect(p.x, p.y, p.w, p.h); ctx.clip();
-    ctx.save();
-    itkSwooshTransform(ctx, rect, 1);
-    ctx.fillStyle = d.swooshColor;
-    ctx.fill(ITK_SWOOSH_PATH);
-    ctx.restore();
-    ctx.restore();
-    if (collect) itkHitRegions.push({ kind: 'swooshPhoto', rect });
+    const scid = 'itkclip-' + m.id + '-swooshphoto';
+    L.push({
+      id: 'swooshPhoto', name: 'Swoosh auf Foto', group: null,
+      hit: { kind: 'swooshPhoto', rect },
+      draw: ctx => {
+        ctx.save();
+        ctx.beginPath(); ctx.rect(p.x, p.y, p.w, p.h); ctx.clip();
+        ctx.save();
+        itkSwooshTransform(ctx, rect, 1);
+        ctx.fillStyle = d.swooshColor;
+        ctx.fill(ITK_SWOOSH_PATH);
+        ctx.restore();
+        ctx.restore();
+      },
+      defs: () => itkClipRectSVG(scid, p),
+      svg: () => itkSwooshSVG(rect, 1, d.swooshColor, 'url(#' + scid + ')')
+    });
   }
 
-  itkDrawIcon(ctx, m, collect);
+  itkPushIconLayers(L, m);
+  return L;
 }
 
 /* Icon: quadratische Kachel exakt in der Mitte des Layouts, mit weißer
-   Kontur ringsum. Die Glyphe nimmt automatisch die zur Fläche passende
-   Sekundärfarbe an. */
-function itkDrawIcon(ctx, m, collect) {
+   Kontur ringsum. Drei Ebenen statt einer, damit sich in Photoshop Fläche
+   und Glyphe getrennt anfassen lassen. Anders als die Fugen zwischen den
+   Kacheln ist diese weiße Kontur echte Farbe über der Kachel. */
+function itkPushIconLayers(L, m) {
   const d = m.design;
   if (d.iconKey === 'none') return;
   const S = ITK_ICON_SIZE, g = ITK_GAP;
   const cx = ITK_W / 2, cy = ITK_H / 2;
   const box = { x: cx - S / 2, y: cy - S / 2, w: S, h: S };
 
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(box.x - g, box.y - g, S + g * 2, S + g * 2);
-  ctx.fillStyle = d.iconBg;
-  ctx.fillRect(box.x, box.y, S, S);
+  L.push({
+    id: 'iconFrame', name: 'Icon-Kontur (weiß)', group: 'Icon', hit: null,
+    draw: ctx => {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(box.x - g, box.y - g, S + g * 2, S + g * 2);
+    },
+    svg: () => '<rect x="' + itkNum(box.x - g) + '" y="' + itkNum(box.y - g) +
+               '" width="' + (S + g * 2) + '" height="' + (S + g * 2) + '" fill="#FFFFFF"/>'
+  });
+  L.push({
+    id: 'iconArea', name: 'Icon-Fläche ' + KBR_NAMES[d.iconBg], group: 'Icon',
+    // Der Treffer sitzt auf der Fläche, nicht auf der Glyphe: die fehlt,
+    // solange sie noch lädt.
+    hit: { kind: 'icon', rect: box },
+    draw: ctx => { ctx.fillStyle = d.iconBg; ctx.fillRect(box.x, box.y, S, S); },
+    svg: () => '<rect x="' + itkNum(box.x) + '" y="' + itkNum(box.y) + '" width="' + S +
+               '" height="' + S + '" fill="' + d.iconBg + '"/>'
+  });
+  L.push({
+    id: 'iconGlyph', name: 'Icon-Glyphe', group: 'Icon', hit: null,
+    draw: ctx => {
+      const rec = itkIconImage(d.iconKey, d.iconFg);
+      if (!rec) return;
+      const inner = S * 0.56;
+      const s = Math.min(inner / rec.vbW, inner / rec.vbH);
+      const iw = rec.vbW * s, ih = rec.vbH * s;
+      ctx.drawImage(rec.img, cx - iw / 2, cy - ih / 2, iw, ih);
+    },
+    svg: () => itkIconGlyphSVG(d)
+  });
+}
 
-  const rec = itkIconImage(d.iconKey, d.iconFg);
-  if (rec) {
-    const inner = S * 0.56;
-    const s = Math.min(inner / rec.vbW, inner / rec.vbH);
-    const iw = rec.vbW * s, ih = rec.vbH * s;
-    ctx.drawImage(rec.img, cx - iw / 2, cy - ih / 2, iw, ih);
-  }
-  if (collect) itkHitRegions.push({ kind: 'icon', rect: box });
+// ---------------------------------------------------------------------
+// 8c. SVG-BAUSTEINE
+// Werden nur beim Export aufgerufen, nie beim Zeichnen. Sie rechnen mit
+// denselben Zahlen wie die draw()-Rümpfe – die Geometrie steht jeweils nur
+// an einer Stelle.
+// ---------------------------------------------------------------------
+function itkNum(v) { return String(Number(v.toFixed(4))); }
+function itkXmlAttr(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+}
+
+function itkClipRectSVG(id, r) {
+  return '<clipPath id="' + id + '"><rect x="' + itkNum(r.x) + '" y="' + itkNum(r.y) +
+         '" width="' + itkNum(r.w) + '" height="' + itkNum(r.h) + '"/></clipPath>';
+}
+
+function itkSwooshSVG(rect, factor, color, clipRef) {
+  const p = itkSwooshPlacement(rect, factor);
+  const g = '<g transform="translate(' + itkNum(p.tx) + ',' + itkNum(p.ty) +
+            ') scale(' + itkNum(p.s) + ')"><path d="' + ITK_SWOOSH_D +
+            '" fill="' + color + '"/></g>';
+  return clipRef ? '<g clip-path="' + clipRef + '">' + g + '</g>' : g;
+}
+
+/* Das Foto liegt als Data-URL vor (FileReader bzw. itkDemoImage), das SVG
+   ist damit ohne Nebendateien vollständig. href und xlink:href, weil ältere
+   Programme nur letzteres kennen. */
+function itkPhotoSVG(m, clipRef) {
+  if (!m.img) return '';
+  const w = m.img.width, h = m.img.height;
+  const href = itkXmlAttr(m.src);
+  const img = '<image href="' + href + '" xlink:href="' + href +
+              '" x="' + itkNum(-w / 2) + '" y="' + itkNum(-h / 2) +
+              '" width="' + w + '" height="' + h + '" preserveAspectRatio="none"' +
+              ' transform="translate(' + itkNum(ITK_W / 2 + m.x) + ',' +
+              itkNum(ITK_H / 2 + m.y) + ') scale(' + itkNum(m.scale) + ')"/>';
+  return clipRef ? '<g clip-path="' + clipRef + '">' + img + '</g>' : img;
+}
+
+/* Nicht die Bitmap aus itkIconCache, sondern der bereinigte Quelltext:
+   itkSanitizeIconSVG normiert alle Formen auf #000000, das Ersetzen liefert
+   die eingefärbte Glyphe als echte Pfade. Die viewBox bleibt unangetastet –
+   ein verschobener Ursprung wird so automatisch richtig behandelt. */
+function itkIconGlyphSVG(d) {
+  const src = itkIconSrc[d.iconKey];
+  if (!src) return '';
+  const inner = ITK_ICON_SIZE * 0.56;
+  const s = Math.min(inner / src.vbW, inner / src.vbH);
+  const iw = src.vbW * s, ih = src.vbH * s;
+  return src.svg.replace(/#000000/g, d.iconFg)
+    .replace(/^<svg/i, '<svg x="' + itkNum(ITK_W / 2 - iw / 2) +
+                       '" y="' + itkNum(ITK_H / 2 - ih / 2) +
+                       '" width="' + itkNum(iw) + '" height="' + itkNum(ih) + '"');
+}
+
+// ---------------------------------------------------------------------
+// 8d. ZEICHNEN
+// ---------------------------------------------------------------------
+function itkDrawMotif(ctx, m, collect) {
+  const layers = itkBuildLayers(m);
+  ctx.clearRect(0, 0, ITK_W, ITK_H);
+  layers.forEach(l => l.draw(ctx));
+  if (collect) itkHitRegions = layers.filter(l => l.hit).map(l => l.hit);
 }
 
 function itkRedraw() {
@@ -836,6 +1069,9 @@ function itkApplyImageSrc(src, name) {
   const img = new Image();
   img.onload = () => {
     const m = itkM();
+    // Ein Foto braucht eine Fotofläche – im Kachelmodus läge es unsichtbar
+    // unter den Kacheln.
+    itkLeaveFullTiles(m);
     m.img = img; m.src = src;
     if (name) m.name = name.slice(0, 22);
     m.x = 0; m.y = 0;
@@ -897,9 +1133,25 @@ function itkSetZoom(s) {
   if (label) label.textContent = Math.round(m.scale * 100) + '%';
 }
 
-/* Testmotiv: erzeugt ein Bild im Browser, damit sich der Generator auch
-   ohne Datei ausprobieren lässt (und das Tutorial nie ins Leere läuft). */
+/* Testmotiv: bevorzugt eines der in testmotive.js hinterlegten Bilder,
+   zufällig gewählt – aber nie zweimal dasselbe hintereinander, sonst wirkt
+   der Knopf beim zweiten Klick wie kaputt. Fehlt die Datei, springt die
+   erzeugte Platzhaltergrafik darunter ein, damit das Tutorial nie ins
+   Leere läuft. */
+let itkLetztesTestmotiv = -1;
+
 function itkDemoImage() {
+  const liste = (typeof ITK_TESTMOTIVE !== 'undefined' && ITK_TESTMOTIVE.length)
+    ? ITK_TESTMOTIVE : null;
+  if (!liste) return itkDemoFallback();
+  let i = Math.floor(Math.random() * liste.length);
+  if (liste.length > 1 && i === itkLetztesTestmotiv) i = (i + 1) % liste.length;
+  itkLetztesTestmotiv = i;
+  return liste[i].src;
+}
+
+/* Ersatz, falls testmotive.js fehlt. */
+function itkDemoFallback() {
   const c = document.createElement('canvas');
   c.width = ITK_W; c.height = ITK_H;
   const x = c.getContext('2d');
@@ -939,11 +1191,14 @@ function itkSyncSteps() {
   const area = itkArea(d.areaId);
   const tileCount = area && area.split ? d.tiles.length : 0;
 
+  // Ohne Foto, aber im Kachelmodus, geht es genauso weiter – nur die
+  // Designposition setzt ein Foto voraus, gegen das sie sich abgrenzt.
+  const bereit = hasImg || itkIsFullTiles(d);
   const lock = {
     bild: false,
     design: !hasImg,
-    kacheln: !hasImg || !area || !area.split,
-    swoosh: !hasImg || tileCount > 1,
+    kacheln: !bereit || !area || !area.split,
+    swoosh: !bereit || tileCount > 1,
     vorlagen: false      // Vorlagen lassen sich auch ohne Bild pflegen
   };
   ITK_STEP_IDS.forEach(s => {
@@ -953,7 +1208,8 @@ function itkSyncSteps() {
   });
 
   const sub = {
-    bild: hasImg ? 'Zoom ' + Math.round(m.scale * 100) + '%' : 'kein Bild',
+    bild: hasImg ? 'Zoom ' + Math.round(m.scale * 100) + '%'
+                 : (itkIsFullTiles(d) ? 'ohne Foto' : 'kein Bild'),
     design: (d.iconKey === 'none' ? 'ohne Icon' : 'Icon: ' + itkIconLabel(d.iconKey)) +
             ' · ' + (area ? area.label : '–'),
     kacheln: area && area.split ? tileCount + (tileCount === 1 ? ' Kachel' : ' Kacheln') : 'keine Kacheln',
@@ -967,11 +1223,17 @@ function itkSyncSteps() {
 
   // Der Zufallsbutton sitzt unter dem Vorschaufenster und gehört damit nicht
   // mehr zum Kachel-Reiter – er muss sich hier eigenständig sperren.
-  const rnd = document.getElementById('itk-random-btn');
-  if (rnd) rnd.disabled = !hasImg || !area || !area.split;
+  // Zoom betrifft nur ein Foto – ohne eines hat der Regler nichts zu regeln.
+  const zoomField = document.getElementById('itk-zoom-field');
+  if (zoomField) zoomField.style.display = hasImg ? '' : 'none';
 
-  const exportBtns = document.querySelectorAll('#itk-export-bar button');
-  exportBtns.forEach(b => { b.disabled = !hasImg; });
+  const rnd = document.getElementById('itk-random-btn');
+  if (rnd) rnd.disabled = !bereit || !area || !area.split;
+
+  // Exportknöpfe – die feste Leiste unten und die beiden Sonderformate im
+  // Reiter Vorlagen – brauchen alle ein fertiges Motiv.
+  document.querySelectorAll('#itk-export-bar button, #itk-download-psd, #itk-download-svg')
+    .forEach(b => { b.disabled = !bereit; });
   const cnt = document.getElementById('itk-export-count');
   if (cnt) cnt.textContent = itkMotifs.length > 1 ? itkMotifs.length + ' Motive' : '1180 × 623 px';
 
@@ -1072,7 +1334,9 @@ function itkHoverClear() { Object.keys(itkHoverCache).forEach(k => delete itkHov
 
 function itkHoverPreview(key, build) {
   const m = itkM();
-  if (!m.img) return;
+  // Ohne Foto gibt es nur dann etwas zu zeigen, wenn Kacheln die Fläche
+  // füllen – sonst bliebe die Vorschau weiß.
+  if (!m.img && !itkIsFullTiles(m.design)) return;
   if (!itkHoverCache[key]) {
     const real = m.design;
     m.design = JSON.parse(JSON.stringify(real));
@@ -1112,6 +1376,10 @@ function itkHoverCancelTimers() {
 /* Hover-Verhalten an ein Bedienelement hängen. */
 function itkBindHover(el, key, build) {
   el.addEventListener('mouseenter', () => {
+    // Die bereits gewählte Option zeigt nichts Neues – bei den Kachel-
+    // bereichen würfelte sie sogar eine andere Aufteilung als die gerade
+    // sichtbare. Das sähe aus wie ein Fehler, deshalb gar nicht erst.
+    if (el.classList.contains('active')) return;
     clearTimeout(itkHoverOutT); itkHoverOutT = 0;
     clearTimeout(itkHoverInT);
     itkHoverInT = setTimeout(() => { itkHoverInT = 0; itkHoverPreview(key, build); }, ITK_HOVER_IN);
@@ -1308,13 +1576,22 @@ function itkOpenColorPop(hit, e) {
   const rule = document.getElementById('itk-pop-rule');
   const sw = document.getElementById('itk-pop-swatches');
 
-  let options, current, apply, label, hint;
+  let options, current, apply, label, hint, extra = null;
 
   if (hit.kind === 'tile') {
     options = KBR_PRIMARIES; current = d.tiles[hit.index].color;
     label = 'Kachelfarbe';
     hint = 'Kacheln nutzen ausschließlich die drei Primärfarben.';
-    apply = c => { d.tiles[hit.index].color = c; itkEnforceSwooshColor(m); };
+    apply = c => { d.tiles[hit.index].color = c; d.tiles[hit.index].src = null;
+                   itkEnforceSwooshColor(m); };
+    // Bilder in einzelnen Kacheln gibt es nur im Modus ohne Foto – sonst
+    // konkurrierten sie mit dem Motiv darunter.
+    if (itkIsFullTiles(d)) {
+      extra = { hasImg: !!d.tiles[hit.index].src, index: hit.index };
+      hint = d.tiles[hit.index].src
+        ? 'Eine Farbe zu wählen ersetzt das Bild wieder.'
+        : 'Kacheln nutzen die drei Primärfarben – oder ein eigenes Bild.';
+    }
   } else if (hit.kind === 'icon') {
     options = KBR_PRIMARIES; current = d.iconBg;
     label = 'Icon-Fläche';
@@ -1345,6 +1622,34 @@ function itkOpenColorPop(hit, e) {
 
   title.textContent = label;
   rule.textContent = hint;
+  const act = document.getElementById('itk-pop-actions');
+  act.innerHTML = '';
+  act.style.display = extra ? '' : 'none';
+  if (extra) {
+    const pick = document.createElement('button');
+    pick.className = 'ctrl-btn';
+    pick.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18"/>' +
+      '<circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' +
+      (extra.hasImg ? 'Bild tauschen' : 'Bild einsetzen');
+    pick.addEventListener('click', () => {
+      itkTileTarget = extra.index;
+      document.getElementById('itk-tile-file-input').click();
+      itkClosePop();
+    });
+    act.appendChild(pick);
+    if (extra.hasImg) {
+      const del = document.createElement('button');
+      del.className = 'icon-btn'; del.title = 'Bild aus der Kachel nehmen';
+      del.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+        'stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/>' +
+        '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>';
+      del.addEventListener('click', () => {
+        d.tiles[extra.index].src = null; itkClosePop(); itkSyncAll();
+      });
+      act.appendChild(del);
+    }
+  }
   sw.innerHTML = '';
   options.forEach(c => {
     const b = document.createElement('button');
@@ -1432,7 +1737,7 @@ function itkRemoveMotif(id) {
 function itkSelectMotif(id) {
   itkActiveId = id;
   const m = itkM();
-  itkDropHint.classList.toggle('hidden', !!m.img);
+  itkSyncDropHint();
   itkSetZoom(m.scale);
   itkBuildMotifs();
   itkSyncAll();
@@ -1458,6 +1763,10 @@ function itkSaveTemplate() {
   const input = document.getElementById('itk-tpl-name');
   const name = (input.value || '').trim() || 'Vorlage ' + (itkTemplates.length + 1);
   const d = JSON.parse(JSON.stringify(itkM().design));
+  // Eingesetzte Kachelbilder bleiben draußen: eine Data-URL je Kachel würde
+  // den Speicher des Browsers sprengen, und eine Vorlage beschreibt ohnehin
+  // die Gestaltung, nicht das Bildmaterial.
+  if (d.tiles) d.tiles.forEach(t => { t.src = null; });
   const existing = itkTemplates.findIndex(t => t.name.toLowerCase() === name.toLowerCase());
   const rec = { id: 't' + Date.now().toString(36), name, design: d };
   if (existing >= 0) itkTemplates[existing] = rec; else itkTemplates.push(rec);
@@ -1765,14 +2074,50 @@ function itkInitControls() {
   document.getElementById('itk-demo-btn').addEventListener('click',
     () => itkApplyImageSrc(itkDemoImage(), itkM().name));
 
-  document.getElementById('itk-remove-btn').addEventListener('click', () => {
+  /* Ohne Foto: die ganze Fläche wird zum Kachelbereich. Direkt weiter zum
+     Reiter Kacheln, denn die Anzahl ist dort die einzige offene Frage. */
+  document.getElementById('itk-nophoto-btn').addEventListener('click', () => {
     const m = itkM();
     m.img = null; m.src = null; m.x = 0; m.y = 0;
     document.getElementById('itk-zoom-slider').min = 5;
     itkSetZoom(1);
-    itkCanvas.style.cursor = 'crosshair';
-    itkDropHint.classList.remove('hidden');
+    m.design.iconKey = 'none';
+    if (!itkIsFullTiles(m.design)) m.design.areaBeforeFull = m.design.areaId;
+    itkApplyArea(m, 'full');
     itkSyncAll();
+    itkOpenStep('kacheln');
+    itkToast('Ganze Fläche in Kacheln – Doppelklick setzt Farbe oder Bild');
+  });
+
+  document.getElementById('itk-tile-file-input').addEventListener('change', e => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file || !file.type.startsWith('image/') || itkTileTarget < 0) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const t = itkM().design.tiles[itkTileTarget];
+      itkTileTarget = -1;
+      if (!t) return;
+      t.src = ev.target.result;
+      itkTileImage(t.src);          // Laden anstoßen, itkRedraw folgt von selbst
+      itkSyncAll();
+      itkToast('Bild in die Kachel gesetzt');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  /* „Entfernen“ ist zugleich der Ausstieg aus dem Kachelmodus: es führt in
+     jedem Fall in den leeren Ausgangszustand zurück, in dem ein Bild
+     erwartet wird. */
+  document.getElementById('itk-remove-btn').addEventListener('click', () => {
+    const m = itkM();
+    itkLeaveFullTiles(m);
+    m.img = null; m.src = null; m.x = 0; m.y = 0;
+    document.getElementById('itk-zoom-slider').min = 5;
+    itkSetZoom(1);
+    itkCanvas.style.cursor = 'crosshair';
+    itkSyncAll();
+    itkOpenStep('bild');
   });
 
   const zoom = document.getElementById('itk-zoom-slider');
@@ -1840,6 +2185,8 @@ function itkInitControls() {
   syncDanger();
 
   document.getElementById('itk-download').addEventListener('click', () => itkExport(itkM()));
+  document.getElementById('itk-download-psd').addEventListener('click', () => itkExportPSD(itkM()));
+  document.getElementById('itk-download-svg').addEventListener('click', () => itkExportSVG(itkM()));
   document.getElementById('itk-download-all').addEventListener('click', () => {
     itkMotifs.filter(m => m.img).forEach((m, i) => setTimeout(() => itkExport(m), i * 350));
   });
@@ -1896,14 +2243,189 @@ async function itkHandleIconUpload(file) {
   itkToast('Icon „' + itkCustomIconLabel + '“ hinzugefügt');
 }
 
+function itkExportName(m) {
+  return 'KBR_Intranet_Kachel_' + m.name.replace(/[^\w\-]+/g, '_');
+}
+
+/* Blob-Downloads brauchen den Anker im Dokument, bevor click() greift –
+   anders als der Data-URL-Download beim JPG. */
+function itkDownloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function itkExport(m) {
   const c = document.createElement('canvas');
   c.width = ITK_W; c.height = ITK_H;
   itkDrawMotif(c.getContext('2d'), m, false);
   const link = document.createElement('a');
-  link.download = 'KBR_Intranet_Kachel_' + m.name.replace(/[^\w\-]+/g, '_') + '.jpg';
+  link.download = itkExportName(m) + '.jpg';
   link.href = c.toDataURL('image/jpeg', 0.95);
   link.click();
+}
+
+// ---------------------------------------------------------------------
+// 18b. SVG-EXPORT
+// Baut sich aus derselben Ebenenliste wie die Vorschau. Kacheln, Swoosh und
+// Icon bleiben echte Vektoren, nur das Foto ist zwangsläufig ein Bitmap –
+// es steckt als Data-URL mit drin, die Datei ist also selbsttragend.
+// Für Photoshop taugt das wenig (dort wird beim Öffnen gerastert), für
+// Illustrator und InDesign dagegen sehr.
+// ---------------------------------------------------------------------
+function itkXmlId(s) {
+  return String(s).toLowerCase()
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+function itkMotifSVG(m) {
+  const layers = itkBuildLayers(m);
+
+  const defs = [];
+  layers.forEach(l => { if (l.defs) defs.push(l.defs()); });
+
+  // Eine Gruppe lohnt erst ab zwei Mitgliedern – sonst entstehen Gruppen mit
+  // einem einzigen Kind, die die Ebenenpalette nur aufblähen.
+  const count = {};
+  layers.forEach(l => { if (l.group) count[l.group] = (count[l.group] || 0) + 1; });
+
+  const body = [];
+  let open = null;
+  layers.forEach(l => {
+    const grp = (l.group && count[l.group] > 1) ? l.group : null;
+    if (grp !== open) {
+      if (open) body.push('</g>');
+      if (grp) body.push('<g id="' + itkXmlId(grp) + '" data-name="' + itkXmlAttr(grp) + '">');
+      open = grp;
+    }
+    const frag = l.svg ? l.svg() : '';
+    if (frag) {
+      body.push('<g id="' + itkXmlId(l.id) + '" data-name="' + itkXmlAttr(l.name) + '">' +
+                frag + '</g>');
+    }
+  });
+  if (open) body.push('</g>');
+
+  return '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ' +
+    'width="' + ITK_W + '" height="' + ITK_H + '" viewBox="0 0 ' + ITK_W + ' ' + ITK_H + '">\n' +
+    (defs.length ? '<defs>' + defs.join('') + '</defs>\n' : '') +
+    body.join('\n') + '\n</svg>\n';
+}
+
+// ---------------------------------------------------------------------
+// 18c. PSD-EXPORT
+// Jede Ebene der Liste wird einzeln gerastert und als eigene Photoshop-Ebene
+// geschrieben – Foto, jede Kachel, Swoosh und Icon getrennt anfassbar.
+// Das Schreiben übernimmt ag-psd (vendor/ag-psd.js).
+// ---------------------------------------------------------------------
+
+/* Die Icon-Glyphe liegt als Bitmap erst vor, nachdem das eingefärbte SVG
+   dekodiert wurde; beim ersten Aufruf liefert itkIconImage null. Ohne dieses
+   Warten fehlte die Glyphe in der Datei. */
+function itkEnsureIcon(key, color) {
+  return new Promise(res => {
+    if (key === 'none' || itkIconImage(key, color)) return res();
+    const rec = itkIconCache[key + '|' + color];
+    if (!rec) return res();
+    const prev = rec.img.onload;
+    rec.img.onload = e => { if (prev) prev(e); res(); };
+    rec.img.onerror = () => res();
+    setTimeout(res, 3000);            // nie unbegrenzt warten
+  });
+}
+
+function itkLayerPixels(l) {
+  const c = document.createElement('canvas');
+  c.width = ITK_W; c.height = ITK_H;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  l.draw(x);
+  return { canvas: c, data: x.getImageData(0, 0, ITK_W, ITK_H).data };
+}
+
+/* Engste Umgrenzung aller nicht vollständig durchsichtigen Pixel. Bewusst aus
+   den Pixeln statt aus der angegebenen Geometrie: Kachelkanten liegen auf
+   Bruchkoordinaten (0,63 · 1180 = 743,4), dort glättet fillRect – ein
+   Rechteck nach Zahlen wäre bis zu einem Pixel zu klein und schnitte die
+   Kante ab. Für die Swoosh-Pfade erspart es zusätzlich einen Pfadparser. */
+function itkAlphaBBox(data) {
+  let minX = ITK_W, minY = ITK_H, maxX = -1, maxY = -1;
+  for (let y = 0; y < ITK_H; y++) {
+    const row = y * ITK_W * 4;
+    for (let x = 0; x < ITK_W; x++) {
+      if (data[row + x * 4 + 3] === 0) continue;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      maxY = y;
+    }
+  }
+  if (maxX < 0) return null;
+  return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+}
+
+/* Baut den Photoshop-Ebenenbaum. children[0] ist die unterste Ebene, deshalb
+   entspricht die Reihenfolge genau der Zeichenreihenfolge. */
+function itkPsdTree(m) {
+  const layers = itkBuildLayers(m);
+  const count = {};
+  layers.forEach(l => { if (l.group) count[l.group] = (count[l.group] || 0) + 1; });
+
+  const children = [], groups = {};
+  layers.forEach(l => {
+    const px = itkLayerPixels(l);
+    const b = itkAlphaBBox(px.data);
+    if (!b) return;                   // leere Ebene gar nicht erst schreiben
+    const cut = document.createElement('canvas');
+    cut.width = b.w; cut.height = b.h;
+    cut.getContext('2d').drawImage(px.canvas, b.x, b.y, b.w, b.h, 0, 0, b.w, b.h);
+    const rec = {
+      name: l.name, left: b.x, top: b.y, right: b.x + b.w, bottom: b.y + b.h,
+      canvas: cut, opacity: 1, blendMode: 'normal'
+    };
+    const grp = (l.group && count[l.group] > 1) ? l.group : null;
+    if (!grp) { children.push(rec); return; }
+    if (!groups[grp]) { groups[grp] = { name: grp, opened: true, children: [] };
+                        children.push(groups[grp]); }
+    groups[grp].children.push(rec);
+  });
+  return children;
+}
+
+async function itkExportPSD(m) {
+  if (!m.img) { itkToast('Erst ein Bild wählen'); return; }
+  if (!window.agPsd || !agPsd.writePsdUint8Array) {
+    itkToast('PSD-Baustein fehlt – vendor/ag-psd.js prüfen'); return;
+  }
+  itkToast('PSD wird gebaut …');
+  await itkEnsureIcon(m.design.iconKey, m.design.iconFg);
+
+  const children = itkPsdTree(m);
+
+  // Verbundansicht: ag-psd erzeugt keine. Sie kommt aus demselben
+  // itkDrawMotif wie das JPG – Ebenenstapel und Vorschaubild in Photoshop
+  // können dadurch nicht auseinanderlaufen.
+  const flat = document.createElement('canvas');
+  flat.width = ITK_W; flat.height = ITK_H;
+  itkDrawMotif(flat.getContext('2d'), m, false);
+
+  const bytes = agPsd.writePsdUint8Array(
+    { width: ITK_W, height: ITK_H, children: children, canvas: flat },
+    { generateThumbnail: true, noBackground: true });
+
+  itkDownloadBlob(new Blob([bytes], { type: 'image/vnd.adobe.photoshop' }),
+                  itkExportName(m) + '.psd');
+  itkToast('PSD gesichert · ' + (bytes.length / 1048576).toFixed(1) + ' MB');
+}
+
+function itkExportSVG(m) {
+  if (!m.img) { itkToast('Erst ein Bild wählen'); return; }
+  const blob = new Blob([itkMotifSVG(m)], { type: 'image/svg+xml;charset=utf-8' });
+  itkDownloadBlob(blob, itkExportName(m) + '.svg');
+  itkToast('SVG gesichert – Vektor für Illustrator und InDesign');
 }
 
 // ---------------------------------------------------------------------
@@ -1911,6 +2433,14 @@ function itkExport(m) {
 // Eine einzige Stelle, die UI und Zeichnung aus dem State ableitet –
 // so kann die Anzeige nie vom tatsächlichen Zustand abweichen.
 // ---------------------------------------------------------------------
+/* Der Hinweis „Bild hierher ziehen“ gilt nur, solange das Motiv wirklich
+   leer ist. Im Kachelmodus ohne Foto steht dort bereits ein Entwurf. */
+function itkSyncDropHint() {
+  if (!itkDropHint) return;
+  const m = itkM();
+  itkDropHint.classList.toggle('hidden', !!m.img || itkIsFullTiles(m.design));
+}
+
 function itkSyncAll() {
   const m = itkM(), d = m.design;
   // Der echte Zustand hat sich geändert – zwischengespeicherte Hover-Varianten
@@ -1939,6 +2469,7 @@ function itkSyncAll() {
   // Ein Wechsel des Kachelbereichs ändert die sichtbare Fotofläche und damit
   // die erlaubten Grenzen – hier neu einfangen statt erst beim nächsten Zug.
   itkSetZoom(m.scale);
+  itkSyncDropHint();
   itkSyncSteps();
   itkRedraw();
 }
@@ -1965,7 +2496,7 @@ const ITK_TUT = [
     text: '<p>Jede nummerierte Seite ist ein eigenes Motiv. Mit <b>+</b> legst du eine weitere an – sie übernimmt das Design der aktuellen, du tauschst nur das Bild.</p><p>Ein Klick wechselt die Seite, das <b>×</b> entfernt sie.</p>' },
 
   { sel: '#itk-step-bild', title: '1 · Bild',
-    text: '<p>Bild hochladen oder direkt ins Vorschaufenster ziehen. Ideal sind <b>1180 × 623 px</b>.</p><p>Ohne eigenes Bild erzeugt <b>Testmotiv</b> eine Platzhaltergrafik zum Ausprobieren.</p>',
+    text: '<p>Bild hochladen oder direkt ins Vorschaufenster ziehen. Ideal sind <b>1180 × 623 px</b>. <b>Testmotiv</b> erzeugt eine Platzhaltergrafik zum Ausprobieren.</p><p><b>Kein Bild</b> arbeitet ganz ohne Foto: die volle Fläche wird in Kacheln geteilt, und in jede Kachel lässt sich per Doppelklick ein eigenes Bild setzen.</p>',
     before: () => { itkOpenStep('bild'); if (!itkM().img) itkApplyImageSrc(itkDemoImage(), itkM().name); } },
 
   { sel: '#itk-zoom-field', title: 'Zoom & Ausschnitt',
@@ -1993,7 +2524,7 @@ const ITK_TUT = [
     } },
 
   { sel: '#itk-stage', title: 'Farben per Doppelklick',
-    text: '<p><b>Doppelklick auf jede Fläche</b> im Vorschaufenster öffnet die Farbauswahl.</p><p>Kacheln: Magenta, Navyblau, Waldgrün. Der Swoosh: Hellblau oder Hellgrün. Beim Icon wählst du die Fläche – die Glyphe nimmt automatisch die passende Sekundärfarbe an. Die weißen Konturen sind fix.</p>' },
+    text: '<p><b>Doppelklick auf jede Fläche</b> im Vorschaufenster öffnet die Farbauswahl.</p><p>Kacheln: Magenta, Navyblau, Waldgrün. Der Swoosh: Hellblau oder Hellgrün. Beim Icon wählst du die Fläche – die Glyphe nimmt automatisch die passende Sekundärfarbe an. Die weißen Konturen sind fix.</p><p>Im Modus <b>Kein Bild</b> steht dort zusätzlich <b>Bild einsetzen</b> – so bekommt jede Kachel ihr eigenes Motiv.</p>' },
 
   { sel: '#itk-step-swoosh', title: '4 · Swoosh',
     text: '<p>Der Swoosh steht bereit, solange <b>höchstens eine Kachel</b> im Spiel ist: einzeln auf dem Bild, innerhalb der einen Kachel oder groß als <b>Maske</b> über einer Farbfläche mit farbiger Kante.</p><p>Das Regelwerk gilt auch hier: Hellblau auf Navyblau, Hellgrün auf Waldgrün, Hellgrün oder Weiß auf Magenta.</p>',
@@ -2014,14 +2545,14 @@ const ITK_TUT = [
     } },
 
   { sel: '#itk-step-vorlagen', title: '5 · Vorlagen',
-    text: '<p>Ein fertiges Design lässt sich benennen und sichern. Die Vorlage merkt sich Aufteilung, Farben, Icon und Swoosh – <b>nicht</b> das Bild.</p><p>So wendest du dieselbe Gestaltung auf beliebig viele Motive an. Über die drei Symbole je Eintrag wird eine Vorlage <b>angewendet</b>, <b>umbenannt</b> oder <b>gelöscht</b>.</p>',
+    text: '<p>Ein fertiges Design lässt sich benennen und sichern. Die Vorlage merkt sich Aufteilung, Farben, Icon und Swoosh – <b>nicht</b> das Bild. Über die drei Symbole je Eintrag wird sie <b>angewendet</b>, <b>umbenannt</b> oder <b>gelöscht</b>.</p><p>Darunter liegen die Formate zum Weiterbearbeiten: <b>PSD</b> öffnet in Photoshop mit getrennten Ebenen für Foto, jede Kachel, Swoosh und Icon. <b>SVG</b> hält alles außer dem Foto als Vektor für Illustrator.</p>',
     before: () => itkOpenStep('vorlagen') },
 
   { sel: '.itk-widget-bar', title: 'Alle Ausspielformate im Blick',
     text: '<p>Rechts läuft dein Motiv durch alle Intranet-Formate mit – in ihrer echten Ausspielgröße.</p><p>Über <b>Widget-Vorschau</b> siehst du zusätzlich die Oberfläche, die das Intranet darüberlegt. Der Haken <b>Schutzzonen einblenden</b> markiert dann rot, wo kein wichtiges Bilddetail liegen darf.</p>' },
 
   { sel: '#itk-export-bar', title: 'Export',
-    text: '<p>Die Exportleiste bleibt immer sichtbar. Sie gibt das Masterformat <b>1180 × 623 px</b> als JPG aus – einzeln oder für alle Motive der Session auf einmal.</p><p>Das war alles. Über <b>Tutorial</b> oben rechts kommst du jederzeit hierher zurück.</p>' }
+    text: '<p>Die Exportleiste unten bleibt immer sichtbar und gibt das Masterformat <b>1180 × 623 px</b> als JPG aus – einzeln oder für alle Motive auf einmal. PSD und SVG liegen im Reiter <b>Vorlagen</b>.</p><p>Das war alles. Über <b>Tutorial</b> oben rechts kommst du jederzeit hierher zurück.</p>' }
 ];
 
 let itkTutIndex = -1;

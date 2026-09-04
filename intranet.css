@@ -232,12 +232,12 @@ input[type=range]::-moz-range-thumb {
 .itk-step.locked { opacity: .38; }
 .itk-step.locked .itk-step-head { cursor: not-allowed; }
 
-/* Bewusst nur so hoch wie das Nummernquadrat: fünf Reiter untereinander
-   sollen nicht die halbe Spalte fressen. Die Luft kommt darunter, im
-   geöffneten Inhalt. */
+/* Kompakt, aber mit etwas Luft ums Nummernquadrat – sechs Reiter
+   untereinander sollen nicht die halbe Spalte fressen, aber auch nicht
+   gedrängt wirken. */
 .itk-step-head {
   display: flex; align-items: center; gap: 10px; width: 100%;
-  padding: 5px 12px; background: none; border: none; cursor: pointer;
+  padding: 8px 12px; background: none; border: none; cursor: pointer;
   color: inherit; font-family: inherit; text-align: left;
 }
 .itk-step-num {
@@ -349,6 +349,9 @@ input[type=range]::-moz-range-thumb {
 }
 .itk-pop-sw:hover { outline-color: rgba(255,255,255,0.4); }
 .itk-pop-sw.active { outline-color: #fff; }
+.itk-pop-actions { display: flex; gap: 6px; }
+.itk-pop-actions .ctrl-btn { flex: 1; padding: 7px 10px; }
+.itk-pop-actions .icon-btn { width: 32px; height: auto; }
 .itk-pop-rule { font-size: 10.5px; line-height: 1.5; color: var(--itk-t3); max-width: 230px; }
 
 /* ==================================================== Vorschauspalte */

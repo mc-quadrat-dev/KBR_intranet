@@ -65,17 +65,19 @@
           </button>
           <div class="itk-step-body">
             <div class="itk-btn-row">
-              <button class="ctrl-btn primary" id="itk-upload-btn">
+              <button class="icon-btn accent" id="itk-upload-btn" title="Bild wählen" aria-label="Bild wählen">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                Bild wählen
               </button>
-              <button class="ctrl-btn" id="itk-remove-btn">
+              <button class="icon-btn" id="itk-remove-btn" title="Bild entfernen" aria-label="Bild entfernen">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                Entfernen
               </button>
               <button class="ctrl-btn" id="itk-demo-btn" title="Testmotiv erzeugen">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8-5.8 1.9 5.8 1.9L12 18.4l1.9-5.8 5.8-1.9-5.8-1.9Z"/></svg>
                 Testmotiv
+              </button>
+              <button class="ctrl-btn" id="itk-nophoto-btn" title="Ohne Foto arbeiten – die ganze Fläche wird in Kacheln geteilt">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18"/><path d="M3 12h18"/><path d="M12 3v18"/></svg>
+                Kein Bild
               </button>
             </div>
 
@@ -146,7 +148,7 @@
               <input type="range" id="itk-tiles-slider" min="1" max="5" value="3" step="1">
             </div>
             <div class="itk-note">
-              Farben einzeln setzen: <b>Doppelklick auf eine Kachel</b>. Erlaubt sind die drei Primärfarben Magenta, Navyblau und Waldgrün.
+              Farben einzeln setzen: <b>Doppelklick auf eine Kachel</b>. Erlaubt sind die drei Primärfarben Magenta, Navyblau und Waldgrün. Arbeitest du <b>ohne Foto</b>, lässt sich dort statt einer Farbe auch ein eigenes Bild in die Kachel setzen.
             </div>
           </div>
         </section>
@@ -192,8 +194,18 @@
               <label class="itk-label">Gespeicherte Vorlagen</label>
               <div class="itk-tpl-list" id="itk-tpl-list"></div>
             </div>
-            <div class="itk-note">
-              Eine Vorlage speichert Kachelaufteilung, Farben, Icon und Swoosh – <b>nicht</b> das Bild. Beim Anwenden bleibt das Motiv erhalten, nur das Design wird ausgetauscht.
+            <div class="itk-field">
+              <label class="itk-label">Zum Weiterbearbeiten</label>
+              <div class="itk-btn-row">
+                <button class="ctrl-btn primary" id="itk-download-psd" title="Photoshop-Datei mit getrennten Ebenen: Foto, jede Kachel, Swoosh und Icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>
+                  PSD mit Ebenen
+                </button>
+                <button class="ctrl-btn" id="itk-download-svg" title="Vektordatei für Illustrator und InDesign">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/><circle cx="12" cy="21" r="1"/></svg>
+                  SVG Vektor
+                </button>
+              </div>
             </div>
           </div>
         </section>
@@ -255,6 +267,7 @@
 <div class="itk-pop" id="itk-pop">
   <div class="itk-pop-title" id="itk-pop-title">Farbe</div>
   <div class="itk-pop-swatches" id="itk-pop-swatches"></div>
+  <div class="itk-pop-actions" id="itk-pop-actions" style="display:none"></div>
   <div class="itk-pop-rule" id="itk-pop-rule"></div>
 </div>
 
@@ -282,7 +295,12 @@
 
 <input type="file" id="itk-file-input" accept="image/*" style="display:none">
 <input type="file" id="itk-icon-file-input" accept=".svg,image/svg+xml" style="display:none">
+<input type="file" id="itk-tile-file-input" accept="image/*" style="display:none">
 
+<!-- ag-psd schreibt die Photoshop-Datei; lokal abgelegt, damit der
+     Generator auch ohne Internet funktioniert. Siehe vendor/README.txt -->
+<script src="testmotive.js"></script>
+<script src="vendor/ag-psd.js"></script>
 <script src="intranet.js"></script>
 </body>
 </html>
