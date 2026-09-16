@@ -473,7 +473,7 @@ function itkM() { return itkMotifs.find(m => m.id === itkActiveId) || itkMotifs[
 // ---------------------------------------------------------------------
 const ITK_TILE_MIN = 70;
 
-function itkSplitTiles(seeds, n, rnd) {
+function itkSplitTiles(seeds, n, rnd, iconBox) {
   let rects = seeds.map(r => ({ ...r }));
   let guard = 0;
   while (rects.length < n && guard++ < 60) {
@@ -483,7 +483,7 @@ function itkSplitTiles(seeds, n, rnd) {
       // Leichte Streuung: meist die größte Fläche, gelegentlich die nächste.
       const idx = Math.min(order.length - 1, k + (rnd() < 0.25 ? 1 : 0));
       const t = order[idx];
-      const cut = itkCutRect(t, rnd);
+      const cut = itkCutRect(t, rnd, iconBox);
       if (!cut) continue;
       rects = rects.filter(r => r !== t).concat(cut);
       done = true;
@@ -493,7 +493,26 @@ function itkSplitTiles(seeds, n, rnd) {
   return rects;
 }
 
-function itkCutRect(t, rnd) {
+/* Ein zufälliger Kachelschnitt, der ganz knapp an einer Icon-/Logo-Kante
+   vorbeiläuft, sieht nach Fehler aus – weder sauber getrennt noch bündig.
+   Läuft er näher als ITK_ICON_SNAP an der Kante vorbei, wird er stattdessen
+   exakt auf sie gelegt: die Kachel schließt dann direkt an die weiße Kontur
+   des Icons an, statt einen schmalen Rest-Streifen übrig zu lassen. */
+const ITK_ICON_SNAP = 28;
+function itkSnapCutToIcon(cutAbs, vertical, spanFrom, spanTo, iconBox) {
+  if (!iconBox) return cutAbs;
+  const kanteVon = vertical ? iconBox.x : iconBox.y;
+  const kanteBis = vertical ? iconBox.x + iconBox.w : iconBox.y + iconBox.h;
+  const iconSpanVon = vertical ? iconBox.y : iconBox.x;
+  const iconSpanBis = vertical ? iconBox.y + iconBox.h : iconBox.x + iconBox.w;
+  // Nur relevant, wenn der Schnitt auf der Gegenachse überhaupt am Icon vorbeiläuft.
+  if (spanTo <= iconSpanVon || spanFrom >= iconSpanBis) return cutAbs;
+  if (Math.abs(cutAbs - kanteVon) <= ITK_ICON_SNAP) return kanteVon;
+  if (Math.abs(cutAbs - kanteBis) <= ITK_ICON_SNAP) return kanteBis;
+  return cutAbs;
+}
+
+function itkCutRect(t, rnd, iconBox) {
   const g = ITK_GAP / 2;
   const canV = t.w > (ITK_TILE_MIN * 2 + ITK_GAP);
   const canH = t.h > (ITK_TILE_MIN * 2 + ITK_GAP);
@@ -505,12 +524,14 @@ function itkCutRect(t, rnd) {
 
   const f = 0.36 + rnd() * 0.28;
   if (vertical) {
-    const cut = Math.round(t.w * f);
+    let cutAbs = itkSnapCutToIcon(t.x + Math.round(t.w * f), true, t.y, t.y + t.h, iconBox);
+    const cut = cutAbs - t.x;
     if (cut - g < ITK_TILE_MIN || t.w - cut - g < ITK_TILE_MIN) return null;
     return [ { x: t.x, y: t.y, w: cut - g, h: t.h },
              { x: t.x + cut + g, y: t.y, w: t.w - cut - g, h: t.h } ];
   }
-  const cut = Math.round(t.h * f);
+  let cutAbs = itkSnapCutToIcon(t.y + Math.round(t.h * f), false, t.x, t.x + t.w, iconBox);
+  const cut = cutAbs - t.y;
   if (cut - g < ITK_TILE_MIN || t.h - cut - g < ITK_TILE_MIN) return null;
   return [ { x: t.x, y: t.y, w: t.w, h: cut - g },
            { x: t.x, y: t.y + cut + g, w: t.w, h: t.h - cut - g } ];
@@ -539,6 +560,22 @@ function itkColorTiles(tiles, rnd) {
   });
 }
 
+/* Nachträgliche Gegenprobe für per Index übernommene Altfarben (siehe
+   itkRebuildTiles, keepColors): die Position sagt nichts über die neue
+   Nachbarschaft. Zwei Kacheln, die jetzt aneinanderstoßen und zufällig
+   dieselbe alte Farbe behalten haben, bekommen eine erlaubte nachgetragen –
+   deterministisch, damit ein Regler-Ziehen nicht plötzlich neu würfelt. */
+function itkFixAdjacentColors(tiles) {
+  tiles.forEach(t => {
+    const used = new Set();
+    tiles.forEach(o => { if (o !== t && itkAdjacent(t, o)) used.add(o.color); });
+    if (used.has(t.color)) {
+      const avail = KBR_PRIMARIES.filter(c => !used.has(c));
+      if (avail.length) t.color = avail[0];
+    }
+  });
+}
+
 /* Neue Aufteilung erzeugen. keepColors: Farben nach Möglichkeit behalten
    (beim reinen Ändern der Kachelzahl), sonst neu würfeln. */
 function itkRebuildTiles(m, keepColors) {
@@ -552,9 +589,14 @@ function itkRebuildTiles(m, keepColors) {
   const prevSrc = d.tiles.map(t => t.src);
   const { seeds } = itkRegions(area.split, ITK_W, ITK_H, ITK_GAP);
   const n = Math.max(area.min, Math.min(itkMaxTiles(d), d.tileCount));
-  d.tiles = itkMtOn(d) ? itkMtTiles(seeds[0], n) : itkSplitTiles(seeds, n, Math.random);
+  d.tiles = itkMtOn(d) ? itkMtTiles(seeds[0], n) : itkSplitTiles(seeds, n, Math.random, itkIconBox(d));
   itkColorTiles(d.tiles, Math.random);
+  // Alte Farben nach Position zu übernehmen ist blind gegenüber der neuen
+  // Nachbarschaft: Kachel 2 war eben noch nicht neben Kachel 3. Danach also
+  // gegenprüfen, statt zwei gleichfarbige Kacheln nur mit der schmalen
+  // Standardfuge nebeneinander stehen zu lassen.
   if (prev) d.tiles.forEach((t, i) => { if (prev[i]) t.color = prev[i]; });
+  itkFixAdjacentColors(d.tiles);
   d.tiles.forEach((t, i) => { if (prevSrc[i]) t.src = prevSrc[i]; });
   itkEnforceTileImageLimit(d);
   itkEnforceSwooshColor(m);
@@ -594,6 +636,16 @@ function itkLogoWidth() {
   const ih = ITK_ICON_SIZE * ITK_LOGO_INNER;
   const iw = ih * (src ? src.vbW / src.vbH : 4.732);
   return Math.round(iw + (ITK_ICON_SIZE - ih));
+}
+
+/* Lage und Größe der Icon-/Logo-Trägerfläche – dieselbe Geometrie wie beim
+   Zeichnen (itkPushIconLayers), hier zusätzlich vor dem Kachelschnitt
+   gebraucht, damit Kachelkanten sich daran ausrichten können. */
+function itkIconBox(d) {
+  if (d.iconKey === 'none') return null;
+  const S = ITK_ICON_SIZE;
+  const W = d.iconKey === 'logo' ? itkLogoWidth() : S;
+  return { x: ITK_W / 2 - W / 2, y: ITK_H / 2 - S / 2, w: W, h: S };
 }
 
 // ---------------------------------------------------------------------
@@ -975,6 +1027,17 @@ function itkBuildLayers(m) {
   if (d.swoosh === 'tile' && d.tiles.length === 1) {
     const t = d.tiles[0];
     const tcid = 'itkclip-' + m.id + '-swooshtile';
+    // Der Swoosh läuft absichtlich über seine Kachel hinaus – das kollidiert
+    // mit Icon oder Logo, wenn dessen Kachel direkt daneben oder darunter
+    // liegt: die unregelmäßige Form berührt dann die weiße Kontur an
+    // zufälligen Stellen statt an einer sauberen Kante. Deshalb bleibt die
+    // Icon-/Logo-Fläche samt ihrer eigenen weißen Kontur für den Swoosh
+    // tabu – ausgespart per Clip, nicht nur überdeckt.
+    const iconBox = itkIconBox(d);
+    const keepOut = iconBox ? {
+      x: iconBox.x - ITK_GAP, y: iconBox.y - ITK_GAP,
+      w: iconBox.w + ITK_GAP * 2, h: iconBox.h + ITK_GAP * 2
+    } : null;
     L.push({
       id: 'swooshTile', name: ITK_TEXT.ebenen.swooshInKachel, group: null,
       // Nach der Kachel registriert und als Pfad geprüft: der Doppelklick
@@ -983,7 +1046,10 @@ function itkBuildLayers(m) {
       hit: { kind: 'swooshTile', tile: t, swooshFit: 1.35 },
       draw: ctx => {
         ctx.save();
-        ctx.beginPath(); ctx.rect(t.x, t.y, t.w, t.h); ctx.clip();
+        ctx.beginPath();
+        ctx.rect(t.x, t.y, t.w, t.h);
+        if (keepOut) ctx.rect(keepOut.x, keepOut.y, keepOut.w, keepOut.h);
+        ctx.clip('evenodd');
         ctx.save();
         // Bewusst über die Kachel hinaus skaliert: In der Vorlage läuft der
         // Swoosh am Rand aus dem Feld heraus, statt darin zu schwimmen.
@@ -993,7 +1059,7 @@ function itkBuildLayers(m) {
         ctx.restore();
         ctx.restore();
       },
-      defs: () => itkClipRectSVG(tcid, t),
+      defs: () => keepOut ? itkClipRectHoleSVG(tcid, t, keepOut) : itkClipRectSVG(tcid, t),
       svg: () => itkSwooshSVG(t, 1.35, d.swooshColor, 'url(#' + tcid + ')')
     });
   }
@@ -1038,12 +1104,12 @@ function itkPushIconLayers(L, m) {
   // Trägerfläche und feste Farben – weiß auf Magenta, nicht änderbar.
   const logo = d.iconKey === 'logo';
   const S = ITK_ICON_SIZE, g = ITK_GAP;
-  const W = logo ? itkLogoWidth() : S;
+  const box = itkIconBox(d);
+  const W = box.w;
   const bg = logo ? KBR.magenta : d.iconBg;
   const fg = logo ? KBR.white : d.iconFg;
   const gruppe = logo ? ITK_TEXT.ebenen.gruppeLogo : ITK_TEXT.ebenen.gruppeIcon;
   const cx = ITK_W / 2, cy = ITK_H / 2;
-  const box = { x: cx - W / 2, y: cy - S / 2, w: W, h: S };
 
   L.push({
     id: 'iconFrame', name: logo ? ITK_TEXT.ebenen.logoKontur : ITK_TEXT.ebenen.iconKontur,
@@ -1110,6 +1176,17 @@ function itkXmlText(s) {
 function itkClipRectSVG(id, r) {
   return '<clipPath id="' + id + '"><rect x="' + itkNum(r.x) + '" y="' + itkNum(r.y) +
          '" width="' + itkNum(r.w) + '" height="' + itkNum(r.h) + '"/></clipPath>';
+}
+
+/* Clip mit „Loch“: identisch zu itkClipRectSVG, aber ein zweites Rechteck
+   wird per evenodd-Regel ausgespart – genau wie ctx.clip('evenodd') im
+   Canvas. Für den Swoosh, der die Icon-/Logo-Fläche meiden muss. */
+function itkClipRectHoleSVG(id, outer, hole) {
+  return '<clipPath id="' + id + '" clip-rule="evenodd">' +
+         '<rect x="' + itkNum(outer.x) + '" y="' + itkNum(outer.y) +
+         '" width="' + itkNum(outer.w) + '" height="' + itkNum(outer.h) + '"/>' +
+         '<rect x="' + itkNum(hole.x) + '" y="' + itkNum(hole.y) +
+         '" width="' + itkNum(hole.w) + '" height="' + itkNum(hole.h) + '"/></clipPath>';
 }
 
 function itkSwooshSVG(rect, factor, color, clipRef) {

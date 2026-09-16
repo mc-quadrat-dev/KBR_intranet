@@ -330,10 +330,10 @@ const ITK_TEXT = {
     schritt8Text: '<p>Je nach Einstellungen (mit/ohne Icon, mit/ohne Bild) hast du verschiedene Layoutoptionen zur Verfügung.</p><p>Wählst du die Option „Keine Kacheln“, wird im Motiv nur dein Bild mit Icon oder Swoosh angezeigt.</p>',
 
     schritt9Titel: '3 · Kacheln bearbeiten',
-    schritt9Text: '<p>Teile dein Design in bis zu 5 Kacheln auf. Je nach Designoptionen benötigst du eine unterschiedliche Mindest- bzw. Maximalanzahl an Kacheln.</p><p>Mit dem Button „Zufall“ rechts unter dem Motiv werden Aufteilung und Farbe der Kacheln automatisch neu kombiniert. Benachbarte Kacheln erhalten dabei nie dieselbe Farbe.</p>',
+    schritt9Text: '<p>Teile dein Design in bis zu 5 Kacheln auf. Je nach Designoptionen benötigst du eine unterschiedliche Mindest- bzw. Maximalanzahl an Kacheln.</p><p>Mit dem Button „Zufall“ rechts unter dem Motiv werden Aufteilung und Farbe der Kacheln automatisch neu kombiniert.</p>',
 
     schritt10Titel: '4 · Swoosh hinzufügen',
-    schritt10Text: '<p>Der Swoosh kann verwendet werden, wenn du höchstens eine Kachel ausgewählt hast.</p><p>Er kann entweder innerhalb der Kachel oder als Kontur integriert werden.</p>',
+    schritt10Text: '<p>Der Swoosh kann verwendet werden, wenn du höchstens eine Kachel ausgewählt hast.</p><p>Je nach Kachelanzahl, kann er entweder innerhalb der Kachel, im Bild oder als Kontur integriert werden.</p>',
 
     schritt11Titel: 'Farben ändern',
     schritt11Text: '<p>Per <b>Doppelklick</b> auf eine Kachel oder den Swoosh im Motiv kannst du die Farbe ändern.</p><p>Für Kacheln stehen Magenta, Navyblau und Waldgrün zur Verfügung. Je nach Designoption kann der Swoosh hellblau, hellgrün oder weiß eingefärbt werden. Die weißen Konturen bleiben unverändert.</p>',
@@ -342,7 +342,7 @@ const ITK_TEXT = {
     schritt12Text: '<p>Speichere wiederkehrende Designs als Vorlage. Dabei werden Aufteilung, Farben und Swoosh, nicht jedoch das Bild, gespeichert.</p><p>Für die Weiterbearbeitung stehen PSD und SVG zur Verfügung: PSD enthält separate Ebenen für Bild und Kacheln. SVG speichert alle Elemente außer dem Bild als Vektoren.</p>',
 
     schritt13Titel: 'Export',
-    schritt13Text: '<p>Exportiere einzelne Motive alle deine Motive gesammelt als JPG im Format 1180 × 623 px.</p>',
+    schritt13Text: '<p>Exportiere einzelne Motive oder alle deine Motive gesammelt als JPG im Format 1180 × 623 px.</p>',
 
     schritt14Titel: 'Geschafft!',
     schritt14Text: '<p>Das war\'s schon. Über <b>Tutorial</b> oben rechts gelangst du jederzeit zurück zu dieser Einführung.</p>'
