@@ -710,10 +710,33 @@ function itkMtWrap(words, fs, cfg, maxW) {
 function itkMtLayout(d) {
   const cfg = itkMtCfg(d);
   if (!cfg) return null;
-  const roh = String(d.textValue || '').replace(/\s+/g, ' ').trim();
+  const maxW = ITK_MT_BOX.w;
+  const roh0 = String(d.textValue || '');
+
+  // Ein Zeilenumbruch ist ein bewusster Wunsch (Enter-Taste), kein normaler
+  // Leerraum – deshalb hier erhalten, statt mit weggeglättet. Nur möglich,
+  // wo überhaupt mehr als eine Zeile erlaubt ist (Zweizeiler, nicht Schlagwort).
+  let segs = cfg.maxLines > 1 ? roh0.split('\n') : [roh0.replace(/\n/g, ' ')];
+  segs = segs.map(s => s.replace(/[^\S\n]+/g, ' ').trim());
+  if (segs.length > cfg.maxLines) {
+    segs = segs.slice(0, cfg.maxLines - 1).concat(segs.slice(cfg.maxLines - 1).join(' '));
+  }
+
+  if (segs.length > 1) {
+    // Manueller Umbruch: die Zeilen stehen fest, nur die Schriftgröße wird
+    // gesucht – anders als beim automatischen Umbruch wird hier nicht mehr
+    // versucht, alles doch noch in eine Zeile zu quetschen.
+    if (segs.every(s => !s)) return null;
+    const lines = segs.map(s => cfg.upper ? s.toUpperCase() : s);
+    const passt = fs => lines.every(l => itkMtWidth(l, fs, cfg) <= maxW);
+    for (let fs = cfg.max; fs >= cfg.min; fs--) if (passt(fs)) return { cfg: cfg, fs: fs, lines: lines };
+    for (let fs = cfg.min - 1; fs >= 12; fs--) if (passt(fs)) return { cfg: cfg, fs: fs, lines: lines, eng: true };
+    return { cfg: cfg, fs: 12, lines: lines, eng: true };
+  }
+
+  const roh = segs[0];
   if (!roh) return null;
   const s = cfg.upper ? roh.toUpperCase() : roh;
-  const maxW = ITK_MT_BOX.w;
 
   // Einzeilig: das Schlagwort sucht sich die größte passende Stufe, die
   // Headline bleibt bei ihren 48 pt.
@@ -2004,16 +2027,29 @@ function itkMtEditClose() {
   if (ta) ta.style.display = 'none';
 }
 
+/* Überzählige Zeilenumbrüche (z. B. aus eingefügtem Text) werden zu
+   Leerzeichen statt die ganze Eingabe abzulehnen – nur die Enter-Taste an
+   der richtigen Stelle soll einen echten Umbruch erzeugen, keine Zufälle
+   beim Einfügen. */
+function itkMtSanitizeBreaks(cfg, wert) {
+  if (!cfg || cfg.maxLines <= 1) return wert.replace(/\n/g, ' ');
+  const max = cfg.maxLines - 1;
+  const teile = wert.split('\n');
+  if (teile.length <= max + 1) return wert;
+  return teile.slice(0, max).concat(teile.slice(max).join(' ')).join('\n');
+}
+
 /* Eine Änderung am Text wirkt sofort: Umbruch, Schriftgröße und – bei zwei
    Zeilen – auch der Kachelbereich. */
 function itkMtApplyValue(wert, ausFeld) {
   const m = itkM();
-  const sauber = itkMtClamp(m.design, wert);
+  const genormt = itkMtSanitizeBreaks(itkMtCfg(m.design), wert);
+  const sauber = itkMtClamp(m.design, genormt);
   const vorher = String(m.design.textValue || '');
   // Eine Eingabe, die die Grenze reißt, wird gar nicht erst angenommen – sonst
   // rutschten die nächsten Zeichen ins vorherige Wort. Nur in ein leeres Feld
   // wird übernommen, was passt; so bleibt Einfügen brauchbar.
-  const neu = (sauber === wert || !vorher.trim()) ? sauber : vorher;
+  const neu = (sauber === genormt || !vorher.trim()) ? sauber : vorher;
   m.design.textValue = neu;
   // Beide Eingabestellen nachziehen. Zurückgenommen wird immer am Ende, die
   // Schreibmarke darf deshalb stehen bleiben, wo sie war.
@@ -2033,6 +2069,26 @@ function itkMtApplyValue(wert, ausFeld) {
   itkRedraw();
   itkMtEditPlace();
   itkSyncSteps();
+}
+
+/* Enter erzwingt einen Umbruch genau an der Schreibmarke – anstelle des
+   Browser-Standards (der einfach eine weitere Zeile einfügt), damit nie mehr
+   Umbrüche entstehen, als die Textart erlaubt. Bei „Schlagwort“ (nur eine
+   Zeile) tut Enter deshalb schlicht nichts. */
+function itkMtInstallEnterBreak(el) {
+  el.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const d = itkM().design, cfg = itkMtCfg(d);
+    const maxUmbrueche = (cfg && cfg.maxLines > 1) ? cfg.maxLines - 1 : 0;
+    const bestehende = (el.value.match(/\n/g) || []).length;
+    if (bestehende >= maxUmbrueche) return;
+    const start = el.selectionStart, ende = el.selectionEnd;
+    const neu = el.value.slice(0, start) + '\n' + el.value.slice(ende);
+    el.value = neu;
+    try { el.setSelectionRange(start + 1, start + 1); } catch (err) { /* unsichtbares Feld */ }
+    itkMtApplyValue(neu, el);
+  });
 }
 
 /* Die Hausschrift wird nicht mitgeliefert, sondern vom Rechner geholt. Erst
@@ -2688,14 +2744,13 @@ function itkInitControls() {
 
   const textInput = document.getElementById('itk-text-input');
   textInput.addEventListener('input', () => itkMtApplyValue(textInput.value, textInput));
+  itkMtInstallEnterBreak(textInput);
 
   const textArea = itkMtEditEl();
-  textArea.addEventListener('input', () => {
-    // Zeilenumbrüche entstehen aus der Breite, nicht aus der Eingabe.
-    itkMtApplyValue(textArea.value.replace(/\n/g, ' '), textArea);
-  });
+  textArea.addEventListener('input', () => itkMtApplyValue(textArea.value, textArea));
+  itkMtInstallEnterBreak(textArea);
   textArea.addEventListener('keydown', e => {
-    if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); textArea.blur(); }
+    if (e.key === 'Escape') { e.preventDefault(); textArea.blur(); }
   });
   textArea.addEventListener('blur', () => { itkMtEditClose(); itkSyncAll(); });
   window.addEventListener('resize', itkMtEditPlace);
@@ -3077,6 +3132,8 @@ function itkSyncAll() {
   textFeld.style.display = itkMtOn(d) ? '' : 'none';
   document.getElementById('itk-text-note-schlagwort').style.display =
     d.textMode === 'schlagwort' ? '' : 'none';
+  document.getElementById('itk-text-note-umbruch').style.display =
+    d.textMode === 'headline' ? '' : 'none';
   if (textInput.value !== (d.textValue || '')) textInput.value = d.textValue || '';
   // Mit Text ist der Kachelbereich kein Auswahlfeld mehr, sondern folgt
   // automatisch der Zeilenzahl – die Auswahl hätte hier nichts mehr zu tun.

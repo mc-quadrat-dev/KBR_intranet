@@ -123,6 +123,8 @@ const ITK_TEXT = {
     hinweisBearbeiten: 'Ein <b>Doppelklick</b> auf den Text im Motiv ändert ihn direkt dort.',
     // Steht nur bei der Textart „Schlagwort“ unter dem Eingabefeld.
     hinweisSchlagwort: 'Ein Schlagwort steht in <b>höchstens zwei Wörtern</b>.',
+    // Steht nur bei der Textart „Zweizeiler“ unter dem Eingabefeld.
+    hinweisZeilenumbruch: 'Mit <b>Enter</b> erzwingst du den Zeilenumbruch genau an dieser Stelle.',
     // Erscheint nur, wenn die Hausschrift auf dem Rechner fehlt.
     fehltSchriftToast: 'TeleNeo nicht gefunden – Text erscheint in einer Ersatzschrift',
 

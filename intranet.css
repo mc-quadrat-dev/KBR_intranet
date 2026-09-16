@@ -143,12 +143,13 @@ body {
 .itk-btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .itk-btn-row .ctrl-btn { flex: 1 1 auto; }
 
-select.itk-select, input.itk-input {
+select.itk-select, .itk-input {
   width: 100%; padding: 8px 10px; border-radius: 0;
   background: #141414; border: 1px solid var(--itk-line-3); color: var(--itk-t1);
   font-family: inherit; font-size: 12px; outline: none;
 }
-select.itk-select:focus, input.itk-input:focus { border-color: var(--itk-accent); }
+select.itk-select:focus, .itk-input:focus { border-color: var(--itk-accent); }
+textarea.itk-input { resize: none; line-height: 1.4; }
 select.itk-select option { background: #141414; }
 
 input[type=range] {

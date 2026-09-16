@@ -139,10 +139,13 @@
 
             <div class="itk-field" id="itk-text-field" style="display:none">
               <label class="itk-label" for="itk-text-input" data-t="text.eingabeLabel">Text im Motiv</label>
-              <input type="text" class="itk-input" id="itk-text-input" maxlength="90"
-                     placeholder="Text eingeben …" data-t-placeholder="text.eingabePlatzhalter">
+              <textarea class="itk-input" id="itk-text-input" rows="2" maxlength="90"
+                        placeholder="Text eingeben …" data-t-placeholder="text.eingabePlatzhalter"></textarea>
               <div class="itk-note" id="itk-text-note-schlagwort" style="display:none" data-t-html="text.hinweisSchlagwort">
                 Ein Schlagwort steht in <b>höchstens zwei Wörtern</b>.
+              </div>
+              <div class="itk-note" id="itk-text-note-umbruch" style="display:none" data-t-html="text.hinweisZeilenumbruch">
+                Mit <b>Enter</b> erzwingst du den Zeilenumbruch genau an dieser Stelle.
               </div>
               <div class="itk-note" data-t-html="text.hinweisBearbeiten">
                 Ein <b>Doppelklick</b> auf den Text im Motiv ändert ihn direkt dort.
