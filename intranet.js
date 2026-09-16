@@ -11,7 +11,58 @@
 //   · Swoosh als drittes Gestaltungselement (auf Bild / in Kachel / Maske)
 //   · Farbregelwerk der Marke wird im Farbdialog erzwungen
 //   · Entscheidungsbaum-UI, Vorlagen, mehrere Motive, Tutorial
+//
+// Alle sichtbaren Texte stehen NICHT hier, sondern in texte.js (ITK_TEXT) –
+// wird dort etwas umformuliert, muss diese Datei nicht angefasst werden.
 // =====================================================================
+
+if (typeof ITK_TEXT === 'undefined') {
+  // Ohne Texte kann das Werkzeug nicht sinnvoll starten – lieber laut
+  // scheitern als mit lauter "undefined" in der Oberfläche.
+  document.body.insertAdjacentHTML('afterbegin',
+    '<div style="background:#c0002a;color:#fff;padding:14px 18px;' +
+    'font:14px/1.5 -apple-system,sans-serif;position:fixed;inset:0 0 auto 0;z-index:9999">' +
+    'texte.js konnte nicht geladen werden – das Werkzeug kann so nicht starten. ' +
+    'Bitte prüfen, ob die Datei mit hochgeladen bzw. eingebunden wurde.</div>');
+  throw new Error('texte.js fehlt – ITK_TEXT ist nicht definiert');
+}
+
+/* Einfache Platzhalter-Ersetzung für Texte aus texte.js: „Vorlage „{{name}}“
+   gesichert“ + {name:'Foo'} -> „Vorlage „Foo“ gesichert“. Bewusst ohne
+   Bibliothek – ein regulärer Ausdruck reicht für das, was hier vorkommt. */
+function itkT(str, vars) {
+  if (!vars) return str;
+  return str.replace(/\{\{(\w+)\}\}/g, (_, k) => (k in vars ? vars[k] : ''));
+}
+
+/* Überträgt alle Texte aus texte.js in die statische Seite: [data-t] setzt
+   textContent, [data-t-html] innerHTML (für Textstellen mit <b>), [data-t-
+   title] das title-Attribut (inklusive aria-label, falls vorhanden), [data-
+   t-placeholder] das placeholder-Attribut. Damit bleibt index.html lesbar,
+   ohne dass jede Formulierung doppelt (dort und in texte.js) gepflegt wird –
+   wird einmal aufgerufen, bevor sonst irgendetwas an der Seite hängt. */
+function itkApplyStaticTexts() {
+  const get = path => path.split('.').reduce((o, k) => (o == null ? o : o[k]), ITK_TEXT);
+  document.querySelectorAll('[data-t]').forEach(el => {
+    const v = get(el.dataset.t);
+    if (typeof v === 'string') el.textContent = v;
+  });
+  document.querySelectorAll('[data-t-html]').forEach(el => {
+    const v = get(el.dataset.tHtml);
+    if (typeof v === 'string') el.innerHTML = v;
+  });
+  document.querySelectorAll('[data-t-title]').forEach(el => {
+    const v = get(el.dataset.tTitle);
+    if (typeof v === 'string') {
+      el.title = v;
+      if (el.hasAttribute('aria-label')) el.setAttribute('aria-label', v);
+    }
+  });
+  document.querySelectorAll('[data-t-placeholder]').forEach(el => {
+    const v = get(el.dataset.tPlaceholder);
+    if (typeof v === 'string') el.placeholder = v;
+  });
+}
 
 const ITK_W = 1180, ITK_H = 623;
 
@@ -34,8 +85,9 @@ const KBR = {
 };
 const KBR_PRIMARIES  = [KBR.magenta, KBR.navy, KBR.forest];
 const KBR_NAMES = {
-  [KBR.navy]: 'Navyblau', [KBR.magenta]: 'Magenta', [KBR.forest]: 'Waldgrün',
-  [KBR.lightblue]: 'Hellblau', [KBR.lightgreen]: 'Hellgrün', [KBR.white]: 'Weiß'
+  [KBR.navy]: ITK_TEXT.farben.navy, [KBR.magenta]: ITK_TEXT.farben.magenta,
+  [KBR.forest]: ITK_TEXT.farben.forest, [KBR.lightblue]: ITK_TEXT.farben.hellblau,
+  [KBR.lightgreen]: ITK_TEXT.farben.hellgruen, [KBR.white]: ITK_TEXT.farben.weiss
 };
 /* Welche Sekundärfarben dürfen auf welcher Primärfarbe stehen? */
 const KBR_ON = {
@@ -86,27 +138,27 @@ function itkFormatByName(name) { return ITK_FORMATS.find(f => f.name === name); 
 // 3b. WIDGET-MATRIX – unverändert übernommen
 // ---------------------------------------------------------------------
 const ITK_WIDGETS = [
-  { key: 'smart-feed', label: 'Smart Feed', rows: [
+  { key: 'smart-feed', label: ITK_TEXT.widgets['smart-feed'], rows: [
     { grid: '100', slots: [
       { format: 'Smart Feed Big',    overlay: 'smartFeedBig' },
       { format: 'Smart Feed Medium', overlay: 'smartFeedMedium' },
       { format: 'Smart Feed Small',  overlay: 'smartFeedSmall' },
-      { format: 'Card Image',        overlay: 'none', note: 'Mobile' },
-      { format: 'Small Rectangle',   overlay: 'none', note: 'Mobile' }
+      { format: 'Card Image',        overlay: 'none', note: ITK_TEXT.widgetNotizen.mobile },
+      { format: 'Small Rectangle',   overlay: 'none', note: ITK_TEXT.widgetNotizen.mobile }
     ] }
   ] },
-  { key: 'story-banner', label: 'Story Banner', rows: [
+  { key: 'story-banner', label: ITK_TEXT.widgets['story-banner'], rows: [
     { grid: '100', slots: [
       { format: 'News Panorama Large', overlay: 'bottomHeadline' },
-      { format: 'Microsite',           overlay: 'microsite', note: 'Mobile' }
+      { format: 'Microsite',           overlay: 'microsite', note: ITK_TEXT.widgetNotizen.mobile }
     ] },
     { grid: '66/33', slots: [
       { format: 'Widget Main', overlay: 'bannerTop' },
-      { format: 'Panorama',    overlay: 'bannerTopPlain', note: 'Tablet' }
+      { format: 'Panorama',    overlay: 'bannerTopPlain', note: ITK_TEXT.widgetNotizen.tablet }
     ] },
     { grid: '75/25', slots: [ { format: 'Rectangle', overlay: 'bannerTop' } ] }
   ] },
-  { key: 'top-news', label: 'Top News Widget', rows: [
+  { key: 'top-news', label: ITK_TEXT.widgets['top-news'], rows: [
     { grid: '100',   slots: [ { format: 'News Panorama Large', overlay: 'bottomHeadline' } ] },
     { grid: '50/50', slots: [ { format: 'Large Rectangle', overlay: 'bottomHeadline' } ] },
     { grid: '66/33', slots: [
@@ -115,13 +167,13 @@ const ITK_WIDGETS = [
     ] },
     { grid: '75/25', slots: [ { format: 'Rectangle', overlay: 'bottomHeadline' } ] }
   ] },
-  { key: 'news-rollup', label: 'News Rollup', rows: [
+  { key: 'news-rollup', label: ITK_TEXT.widgets['news-rollup'], rows: [
     { grid: '50/50', slots: [ { format: 'News Grid Small', overlay: 'none' } ] },
     { grid: '66/33', slots: [ { format: 'News Grid Small', overlay: 'none' } ] }
   ] },
   /* Story Carousel und News Carousel spielen dieselben Formate mit derselben
      Überlagerung aus – zwei Einträge wären hier nur doppelte Arbeit. */
-  { key: 'story-news-carousel', label: 'Story & News Karussell', rows: [
+  { key: 'story-news-carousel', label: ITK_TEXT.widgets['story-news-carousel'], rows: [
     { grid: '100',   slots: [ { format: 'Large Rectangle', overlay: 'tagsTop' } ] },
     { grid: '66/33', slots: [
       { format: 'Large Rectangle', overlay: 'tagsTop' },
@@ -130,11 +182,11 @@ const ITK_WIDGETS = [
       { format: 'Large Rectangle', overlay: 'tagsTop' },
       { format: 'Small Rectangle', overlay: 'tagsTop' } ] }
   ] },
-  { key: 'story-cards', label: 'Personalised Story Cards', rows: [
+  { key: 'story-cards', label: ITK_TEXT.widgets['story-cards'], rows: [
     { grid: '100', slots: [
       { format: 'Large Rectangle', overlay: 'storyCard' },
-      { format: 'Large Rectangle', overlay: 'none', note: 'Mobile' },
-      { format: 'Small Panorama',  overlay: 'none', note: 'Mobile' }
+      { format: 'Large Rectangle', overlay: 'none', note: ITK_TEXT.widgetNotizen.mobile },
+      { format: 'Small Panorama',  overlay: 'none', note: ITK_TEXT.widgetNotizen.mobile }
     ] }
   ] }
 ];
@@ -147,23 +199,23 @@ const ITK_WIDGETS = [
 // dürfte sonst über einer Kachelkante hängen, die nicht dort verläuft.
 // ---------------------------------------------------------------------
 const ITK_AREAS = [
-  { id: 'none', label: 'Keine Kacheln', icon: 'both', min: 0, split: null },
+  { id: 'none', label: ITK_TEXT.bereiche.none, icon: 'both', min: 0, split: null },
 
-  { id: 'bottom-s', label: 'Von unten, schmal',  icon: false, min: 1, split: { type: 'bottom', y: 0.74 } },
-  { id: 'bottom-l', label: 'Von unten, hoch',    icon: false, min: 1, split: { type: 'bottom', y: 0.56 } },
-  { id: 'right',    label: 'Von rechts',         icon: false, min: 1, split: { type: 'right',  x: 0.63 } },
-  { id: 'left',     label: 'Von links',          icon: false, min: 1, split: { type: 'left',   x: 0.37 } },
-  { id: 'l-right',  label: 'Von unten & rechts', icon: false, min: 2, split: { type: 'l-right', x: 0.66, y: 0.70 } },
-  { id: 'l-left',   label: 'Von unten & links',  icon: false, min: 2, split: { type: 'l-left',  x: 0.34, y: 0.70 } },
+  { id: 'bottom-s', label: ITK_TEXT.bereiche['bottom-s'],  icon: false, min: 1, split: { type: 'bottom', y: 0.74 } },
+  { id: 'bottom-l', label: ITK_TEXT.bereiche['bottom-l'],  icon: false, min: 1, split: { type: 'bottom', y: 0.56 } },
+  { id: 'right',    label: ITK_TEXT.bereiche.right,        icon: false, min: 1, split: { type: 'right',  x: 0.63 } },
+  { id: 'left',     label: ITK_TEXT.bereiche.left,         icon: false, min: 1, split: { type: 'left',   x: 0.37 } },
+  { id: 'l-right',  label: ITK_TEXT.bereiche['l-right'],   icon: false, min: 2, split: { type: 'l-right', x: 0.66, y: 0.70 } },
+  { id: 'l-left',   label: ITK_TEXT.bereiche['l-left'],    icon: false, min: 2, split: { type: 'l-left',  x: 0.34, y: 0.70 } },
 
-  { id: 'icon-left',   label: 'Von links',  icon: true, min: 1, split: { type: 'left',   x: 0.50 } },
-  { id: 'icon-right',  label: 'Von rechts', icon: true, min: 1, split: { type: 'right',  x: 0.50 } },
-  { id: 'icon-bottom', label: 'Von unten',  icon: true, min: 1, split: { type: 'bottom', y: 0.50 } },
+  { id: 'icon-left',   label: ITK_TEXT.bereiche['icon-left'],   icon: true, min: 1, split: { type: 'left',   x: 0.50 } },
+  { id: 'icon-right',  label: ITK_TEXT.bereiche['icon-right'],  icon: true, min: 1, split: { type: 'right',  x: 0.50 } },
+  { id: 'icon-bottom', label: ITK_TEXT.bereiche['icon-bottom'], icon: true, min: 1, split: { type: 'bottom', y: 0.50 } },
 
   /* Ohne Foto: die ganze Fläche wird in Kacheln geteilt. Erreichbar nur über
      den Knopf „Kein Bild“ im Reiter Bild, deshalb aus der Auswahl versteckt –
      im Bereichsraster hätte er keine sinnvolle Vorschau. */
-  { id: 'full', label: 'Ganze Fläche', icon: 'both', min: 1, versteckt: true,
+  { id: 'full', label: ITK_TEXT.bereiche.full, icon: 'both', min: 1, versteckt: true,
     split: { type: 'full' } }
 ];
 function itkArea(id) { return ITK_AREAS.find(a => a.id === id); }
@@ -229,11 +281,11 @@ function itkRegions(split, W, H, gap) {
 // 5. ICONS – 5 mitgelieferte + eigener Upload
 // ---------------------------------------------------------------------
 const ITK_ICONS = [
-  { key: 'party', label: 'Party', svg: '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path d="m16.057 25.106c-1.097.404-2.49.916-4.252 1.569-3.009-.42-6.171-1.399-7.538-3.646.498-1.341.932-2.516 1.316-3.553 2.576 2.976 7.077 4.866 10.474 5.63z"/><path d="m16.931 15.069c-2.928-2.927-6.698-5.089-8.235-3.549-.328.328-.229.132-2.508 6.317 2.43 3.507 8.57 5.956 12.847 6.171 1.279-.481 1.249-.505 1.446-.703 1.885-1.885-1.666-6.353-3.55-8.236zm2.488 7.174c-.143.145-.808.152-1.989-.431-1.284-.635-2.749-1.742-4.125-3.118-3.188-3.188-3.933-5.73-3.549-6.114.06-.06.172-.092.331-.092.861 0 3.092.951 5.784 3.642 1.376 1.376 2.484 2.841 3.119 4.125.583 1.179.573 1.845.429 1.988z"/><path d="m9.059 27.694c-1.732.644-3.729 1.39-6.048 2.259-.603.222-1.187-.364-.964-.964.584-1.564 1.111-2.978 1.591-4.268 1.318 1.514 3.3 2.432 5.421 2.973z"/><path d="m19.669 3.895c-.467.082-.918.156-1.224.31.46.706 1.421 1.605.834 2.779-.525 1.05-1.616.988-2.563 1.021.581.794 1.253 1.599.735 2.636-.537 1.075-1.945 1.298-2.776 1.433-.269.044-.519-.136-.569-.403l-.182-.982c-.051-.273.133-.536.406-.584.473-.083.916-.155 1.224-.31-.462-.701-1.419-1.609-.835-2.778.524-1.047 1.614-.988 2.563-1.021-.582-.794-1.253-1.599-.735-2.636.537-1.074 1.946-1.298 2.775-1.433.269-.044.519.136.568.403l.182.982c.053.273-.129.535-.403.583z"/><path d="m28.689 11.925.982.182c.268.05.447.3.403.568-.135.829-.359 2.238-1.433 2.775-1.037.518-1.842-.153-2.636-.735-.033.949.026 2.04-1.021 2.563-1.169.584-2.077-.373-2.778-.835-.155.308-.227.751-.31 1.224-.048.274-.311.457-.584.406l-.982-.182c-.268-.05-.447-.3-.403-.569.135-.83.359-2.238 1.433-2.776 1.036-.518 1.842.154 2.636.735.033-.947-.029-2.039 1.021-2.563 1.174-.587 2.073.374 2.779.834.154-.306.228-.757.31-1.224.047-.271.309-.453.583-.403z"/><path d="m25.7 21h-1.9c-.166 0-.3-.134-.3-.3v-.9c0-.166.134-.3.3-.3h1.9c.166 0 .3.134.3.3v.9c0 .166-.134.3-.3.3z"/><path d="m27.788 3.273-1.344 1.344c-.117.117-.307.117-.424 0l-.636-.637c-.117-.117-.117-.307 0-.424l1.344-1.344c.117-.117.307-.117.424 0l.636.636c.117.117.117.307 0 .425z"/><path d="m12.2 6.5h-.9c-.166 0-.3-.134-.3-.3v-1.9c0-.166.134-.3.3-.3h.9c.166 0 .3.134.3.3v1.9c0 .166-.134.3-.3.3z"/><path d="m19.383 13.255-.75-.5c-.141-.094-.182-.284-.085-.423 2.041-2.904 5.976-5.931 10.139-6.077.171-.005.313.137.313.307v.901c0 .16-.126.285-.286.292-3.483.138-7.051 2.761-8.928 5.424-.093.133-.269.166-.403.076z"/></svg>' },
-  { key: 'aufruf', label: 'Aufruf', svg: '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="m15.87882 15.08708h-8.87659c-1.65125 0-3.00223 1.35104-3.00223 3.00223v14.74094c0 1.65125 1.35098 3.00223 3.00223 3.00223h8.87659z"/><path d="m49.95414 6.91102c-1.11248-.54566-2.41062-.32765-3.32247.48035-6.08708 4.97236-13.89881 7.71874-21.74616 7.69568 0 .00002-7.0052.00002-7.0052.00002v20.7454h7.00521c7.88972-.03305 15.61756 2.73346 21.79623 7.73577 1.8495 1.66611 5.06814.24231 4.98363-2.27181.00005.00012.00005-31.67339.00005-31.67339 0-1.17091-.65051-2.21167-1.71129-2.71204z"/><path d="m53.66692 17.59895v15.71169c8.44644-1.914 8.44177-13.80043 0-15.71169z"/><path d="m22.22357 37.83397h-11.68868l7.74575 17.14275c.66046 1.46111 2.12157 2.41183 3.73275 2.41183 2.60236.06921 4.68895-2.62641 3.9629-5.13387.00007.00005-3.75272-14.42071-3.75272-14.42071z"/></svg>' },
-  { key: 'event', label: 'Event', svg: '<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect height="6" rx="2" width="4" x="11" y="3"/><rect height="6" rx="2" width="4" x="33" y="3"/><path d="m4 18v23c0 2.209 1.791 4 4 4h32c2.209 0 4-1.791 4-4v-23zm12 20c0 1.105-.895 2-2 2h-2c-1.105 0-2-.895-2-2v-2c0-1.105.895-2 2-2h2c1.105 0 2 .895 2 2zm0-11c0 1.105-.895 2-2 2h-2c-1.105 0-2-.895-2-2v-2c0-1.105.895-2 2-2h2c1.105 0 2 .895 2 2zm11 11c0 1.105-.895 2-2 2h-2c-1.105 0-2-.895-2-2v-2c0-1.105.895-2 2-2h2c1.105 0 2 .895 2 2zm0-11c0 1.105-.895 2-2 2h-2c-1.105 0-2-.895-2-2v-2c0-1.105.895-2 2-2h2c1.105 0 2 .895 2 2zm11 11c0 1.105-.895 2-2 2h-2c-1.105 0-2-.895-2-2v-2c0-1.105.895-2 2-2h2c1.105 0 2 .895 2 2zm0-11c0 1.105-.895 2-2 2h-2c-1.105 0-2-.895-2-2v-2c0-1.105.895-2 2-2h2c1.105 0 2 .895 2 2z"/><path d="m44 16v-6c0-2.209-1.791-4-4-4h-1v1c0 2.206-1.794 4-4 4s-4-1.794-4-4v-1h-14v1c0 2.206-1.794 4-4 4s-4-1.794-4-4v-1h-1c-2.209 0-4 1.791-4 4v6z"/></svg>' },
-  { key: 'team', label: 'Team', svg: '<svg viewBox="0 0 511.999 511.999" xmlns="http://www.w3.org/2000/svg"><path d="M438.09,273.32h-39.596c4.036,11.05,6.241,22.975,6.241,35.404v149.65c0,5.182-0.902,10.156-2.543,14.782h65.461c24.453,0,44.346-19.894,44.346-44.346v-81.581C512,306.476,478.844,273.32,438.09,273.32z"/><path d="M107.265,308.725c0-12.43,2.205-24.354,6.241-35.404H73.91c-40.754,0-73.91,33.156-73.91,73.91v81.581c0,24.452,19.893,44.346,44.346,44.346h65.462c-1.641-4.628-2.543-9.601-2.543-14.783V308.725z"/><path d="M301.261,234.815h-90.522c-40.754,0-73.91,33.156-73.91,73.91v149.65c0,8.163,6.618,14.782,14.782,14.782h208.778c8.164,0,14.782-6.618,14.782-14.782v-149.65C375.171,267.971,342.015,234.815,301.261,234.815z"/><path d="M256,38.84c-49.012,0-88.886,39.874-88.886,88.887c0,33.245,18.349,62.28,45.447,77.524c12.853,7.23,27.671,11.362,43.439,11.362c15.768,0,30.586-4.132,43.439-11.362c27.099-15.244,45.447-44.28,45.447-77.524C344.886,78.715,305.012,38.84,256,38.84z"/><path d="M99.918,121.689c-36.655,0-66.475,29.82-66.475,66.475c0,36.655,29.82,66.475,66.475,66.475c9.298,0,18.152-1.926,26.195-5.388c13.906-5.987,25.372-16.585,32.467-29.86c4.98-9.317,7.813-19.946,7.813-31.227C166.393,151.51,136.573,121.689,99.918,121.689z"/><path d="M412.082,121.689c-36.655,0-66.475,29.82-66.475,66.475c0,11.282,2.833,21.911,7.813,31.227c7.095,13.276,18.561,23.874,32.467,29.86c8.043,3.462,16.897,5.388,26.195,5.388c36.655,0,66.475-29.82,66.475-66.475C478.557,151.509,448.737,121.689,412.082,121.689z"/></svg>' },
-  { key: 'emotionen', label: 'Emotionen', svg: '<svg viewBox="0 0 512.001 512.001" xmlns="http://www.w3.org/2000/svg"><path d="m256.001 477.407c-2.59 0-5.179-.669-7.499-2.009-2.52-1.454-62.391-36.216-123.121-88.594-35.994-31.043-64.726-61.833-85.396-91.513-26.748-38.406-40.199-75.348-39.982-109.801.254-40.09 14.613-77.792 40.435-106.162 26.258-28.848 61.3-44.734 98.673-44.734 47.897 0 91.688 26.83 116.891 69.332 25.203-42.501 68.994-69.332 116.891-69.332 35.308 0 68.995 14.334 94.859 40.362 28.384 28.563 44.511 68.921 44.247 110.724-.218 34.393-13.921 71.279-40.728 109.632-20.734 29.665-49.426 60.441-85.279 91.475-60.508 52.373-119.949 87.134-122.45 88.588-2.331 1.354-4.937 2.032-7.541 2.032z"/></svg>' }
+  { key: 'party', label: ITK_TEXT.icon.symbole.party, svg: '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path d="m16.057 25.106c-1.097.404-2.49.916-4.252 1.569-3.009-.42-6.171-1.399-7.538-3.646.498-1.341.932-2.516 1.316-3.553 2.576 2.976 7.077 4.866 10.474 5.63z"/><path d="m16.931 15.069c-2.928-2.927-6.698-5.089-8.235-3.549-.328.328-.229.132-2.508 6.317 2.43 3.507 8.57 5.956 12.847 6.171 1.279-.481 1.249-.505 1.446-.703 1.885-1.885-1.666-6.353-3.55-8.236zm2.488 7.174c-.143.145-.808.152-1.989-.431-1.284-.635-2.749-1.742-4.125-3.118-3.188-3.188-3.933-5.73-3.549-6.114.06-.06.172-.092.331-.092.861 0 3.092.951 5.784 3.642 1.376 1.376 2.484 2.841 3.119 4.125.583 1.179.573 1.845.429 1.988z"/><path d="m9.059 27.694c-1.732.644-3.729 1.39-6.048 2.259-.603.222-1.187-.364-.964-.964.584-1.564 1.111-2.978 1.591-4.268 1.318 1.514 3.3 2.432 5.421 2.973z"/><path d="m19.669 3.895c-.467.082-.918.156-1.224.31.46.706 1.421 1.605.834 2.779-.525 1.05-1.616.988-2.563 1.021.581.794 1.253 1.599.735 2.636-.537 1.075-1.945 1.298-2.776 1.433-.269.044-.519-.136-.569-.403l-.182-.982c-.051-.273.133-.536.406-.584.473-.083.916-.155 1.224-.31-.462-.701-1.419-1.609-.835-2.778.524-1.047 1.614-.988 2.563-1.021-.582-.794-1.253-1.599-.735-2.636.537-1.074 1.946-1.298 2.775-1.433.269-.044.519.136.568.403l.182.982c.053.273-.129.535-.403.583z"/><path d="m28.689 11.925.982.182c.268.05.447.3.403.568-.135.829-.359 2.238-1.433 2.775-1.037.518-1.842-.153-2.636-.735-.033.949.026 2.04-1.021 2.563-1.169.584-2.077-.373-2.778-.835-.155.308-.227.751-.31 1.224-.048.274-.311.457-.584.406l-.982-.182c-.268-.05-.447-.3-.403-.569.135-.83.359-2.238 1.433-2.776 1.036-.518 1.842.154 2.636.735.033-.947-.029-2.039 1.021-2.563 1.174-.587 2.073.374 2.779.834.154-.306.228-.757.31-1.224.047-.271.309-.453.583-.403z"/><path d="m25.7 21h-1.9c-.166 0-.3-.134-.3-.3v-.9c0-.166.134-.3.3-.3h1.9c.166 0 .3.134.3.3v.9c0 .166-.134.3-.3.3z"/><path d="m27.788 3.273-1.344 1.344c-.117.117-.307.117-.424 0l-.636-.637c-.117-.117-.117-.307 0-.424l1.344-1.344c.117-.117.307-.117.424 0l.636.636c.117.117.117.307 0 .425z"/><path d="m12.2 6.5h-.9c-.166 0-.3-.134-.3-.3v-1.9c0-.166.134-.3.3-.3h.9c.166 0 .3.134.3.3v1.9c0 .166-.134.3-.3.3z"/><path d="m19.383 13.255-.75-.5c-.141-.094-.182-.284-.085-.423 2.041-2.904 5.976-5.931 10.139-6.077.171-.005.313.137.313.307v.901c0 .16-.126.285-.286.292-3.483.138-7.051 2.761-8.928 5.424-.093.133-.269.166-.403.076z"/></svg>' },
+  { key: 'aufruf', label: ITK_TEXT.icon.symbole.aufruf, svg: '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="m15.87882 15.08708h-8.87659c-1.65125 0-3.00223 1.35104-3.00223 3.00223v14.74094c0 1.65125 1.35098 3.00223 3.00223 3.00223h8.87659z"/><path d="m49.95414 6.91102c-1.11248-.54566-2.41062-.32765-3.32247.48035-6.08708 4.97236-13.89881 7.71874-21.74616 7.69568 0 .00002-7.0052.00002-7.0052.00002v20.7454h7.00521c7.88972-.03305 15.61756 2.73346 21.79623 7.73577 1.8495 1.66611 5.06814.24231 4.98363-2.27181.00005.00012.00005-31.67339.00005-31.67339 0-1.17091-.65051-2.21167-1.71129-2.71204z"/><path d="m53.66692 17.59895v15.71169c8.44644-1.914 8.44177-13.80043 0-15.71169z"/><path d="m22.22357 37.83397h-11.68868l7.74575 17.14275c.66046 1.46111 2.12157 2.41183 3.73275 2.41183 2.60236.06921 4.68895-2.62641 3.9629-5.13387.00007.00005-3.75272-14.42071-3.75272-14.42071z"/></svg>' },
+  { key: 'event', label: ITK_TEXT.icon.symbole.event, svg: '<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect height="6" rx="2" width="4" x="11" y="3"/><rect height="6" rx="2" width="4" x="33" y="3"/><path d="m4 18v23c0 2.209 1.791 4 4 4h32c2.209 0 4-1.791 4-4v-23zm12 20c0 1.105-.895 2-2 2h-2c-1.105 0-2-.895-2-2v-2c0-1.105.895-2 2-2h2c1.105 0 2 .895 2 2zm0-11c0 1.105-.895 2-2 2h-2c-1.105 0-2-.895-2-2v-2c0-1.105.895-2 2-2h2c1.105 0 2 .895 2 2zm11 11c0 1.105-.895 2-2 2h-2c-1.105 0-2-.895-2-2v-2c0-1.105.895-2 2-2h2c1.105 0 2 .895 2 2zm0-11c0 1.105-.895 2-2 2h-2c-1.105 0-2-.895-2-2v-2c0-1.105.895-2 2-2h2c1.105 0 2 .895 2 2zm11 11c0 1.105-.895 2-2 2h-2c-1.105 0-2-.895-2-2v-2c0-1.105.895-2 2-2h2c1.105 0 2 .895 2 2zm0-11c0 1.105-.895 2-2 2h-2c-1.105 0-2-.895-2-2v-2c0-1.105.895-2 2-2h2c1.105 0 2 .895 2 2z"/><path d="m44 16v-6c0-2.209-1.791-4-4-4h-1v1c0 2.206-1.794 4-4 4s-4-1.794-4-4v-1h-14v1c0 2.206-1.794 4-4 4s-4-1.794-4-4v-1h-1c-2.209 0-4 1.791-4 4v6z"/></svg>' },
+  { key: 'team', label: ITK_TEXT.icon.symbole.team, svg: '<svg viewBox="0 0 511.999 511.999" xmlns="http://www.w3.org/2000/svg"><path d="M438.09,273.32h-39.596c4.036,11.05,6.241,22.975,6.241,35.404v149.65c0,5.182-0.902,10.156-2.543,14.782h65.461c24.453,0,44.346-19.894,44.346-44.346v-81.581C512,306.476,478.844,273.32,438.09,273.32z"/><path d="M107.265,308.725c0-12.43,2.205-24.354,6.241-35.404H73.91c-40.754,0-73.91,33.156-73.91,73.91v81.581c0,24.452,19.893,44.346,44.346,44.346h65.462c-1.641-4.628-2.543-9.601-2.543-14.783V308.725z"/><path d="M301.261,234.815h-90.522c-40.754,0-73.91,33.156-73.91,73.91v149.65c0,8.163,6.618,14.782,14.782,14.782h208.778c8.164,0,14.782-6.618,14.782-14.782v-149.65C375.171,267.971,342.015,234.815,301.261,234.815z"/><path d="M256,38.84c-49.012,0-88.886,39.874-88.886,88.887c0,33.245,18.349,62.28,45.447,77.524c12.853,7.23,27.671,11.362,43.439,11.362c15.768,0,30.586-4.132,43.439-11.362c27.099-15.244,45.447-44.28,45.447-77.524C344.886,78.715,305.012,38.84,256,38.84z"/><path d="M99.918,121.689c-36.655,0-66.475,29.82-66.475,66.475c0,36.655,29.82,66.475,66.475,66.475c9.298,0,18.152-1.926,26.195-5.388c13.906-5.987,25.372-16.585,32.467-29.86c4.98-9.317,7.813-19.946,7.813-31.227C166.393,151.51,136.573,121.689,99.918,121.689z"/><path d="M412.082,121.689c-36.655,0-66.475,29.82-66.475,66.475c0,11.282,2.833,21.911,7.813,31.227c7.095,13.276,18.561,23.874,32.467,29.86c8.043,3.462,16.897,5.388,26.195,5.388c36.655,0,66.475-29.82,66.475-66.475C478.557,151.509,448.737,121.689,412.082,121.689z"/></svg>' },
+  { key: 'emotionen', label: ITK_TEXT.icon.symbole.emotionen, svg: '<svg viewBox="0 0 512.001 512.001" xmlns="http://www.w3.org/2000/svg"><path d="m256.001 477.407c-2.59 0-5.179-.669-7.499-2.009-2.52-1.454-62.391-36.216-123.121-88.594-35.994-31.043-64.726-61.833-85.396-91.513-26.748-38.406-40.199-75.348-39.982-109.801.254-40.09 14.613-77.792 40.435-106.162 26.258-28.848 61.3-44.734 98.673-44.734 47.897 0 91.688 26.83 116.891 69.332 25.203-42.501 68.994-69.332 116.891-69.332 35.308 0 68.995 14.334 94.859 40.362 28.384 28.563 44.511 68.921 44.247 110.724-.218 34.393-13.921 71.279-40.728 109.632-20.734 29.665-49.426 60.441-85.279 91.475-60.508 52.373-119.949 87.134-122.45 88.588-2.331 1.354-4.937 2.032-7.541 2.032z"/></svg>' }
 ];
 const ITK_ICON_MAX_BYTES = 300 * 1024;
 
@@ -265,7 +317,7 @@ function itkCoverFit(img, r) {
   const w = img.width * s, h = img.height * s;
   return { x: r.x + (r.w - w) / 2, y: r.y + (r.h - h) / 2, w: w, h: h };
 }
-let   itkCustomIconLabel = 'Eigenes SVG';
+let   itkCustomIconLabel = ITK_TEXT.icon.eigenesStandardname;
 
 function itkSanitizeIconSVG(svgText) {
   const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
@@ -349,7 +401,7 @@ let itkTemplates = [];
 let itkDragging = false, itkDragSX = 0, itkDragSY = 0, itkDragIX = 0, itkDragIY = 0;
 let itkPinchDist = 0, itkPinchScale = 1;
 let itkWidget = 'none';
-let itkShowDanger = false;   // Schutzzonen sind eine Prüfhilfe, kein Grundzustand
+let itkShowOverlays = true;  // Overlays sind der sinnvolle Grundzustand in der Widget-Vorschau
 let itkHitRegions = [];          // Treffer-Flächen für den Doppelklick
 let itkPreviewCanvases = [];
 let itkPopTarget = null;
@@ -554,7 +606,7 @@ function itkBuildLayers(m) {
   // Ebene ganz unten: Die weißen Konturen sind kein eigenes Objekt, sondern
   // genau diese Fläche, die zwischen den Kacheln durchscheint.
   L.push({
-    id: 'bg', name: 'Hintergrund (weiß)', group: null, hit: null,
+    id: 'bg', name: ITK_TEXT.ebenen.hintergrund, group: null, hit: null,
     draw: ctx => { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, ITK_W, ITK_H); },
     svg: () => '<rect x="0" y="0" width="' + ITK_W + '" height="' + ITK_H + '" fill="#FFFFFF"/>'
   });
@@ -563,14 +615,14 @@ function itkBuildLayers(m) {
   // farbige Vollfläche, darauf eine farbige Kante, darin das Foto.
   if (d.swoosh === 'mask') {
     L.push({
-      id: 'maskBase', name: 'Grundfläche ' + KBR_NAMES[d.maskBase], group: 'Maske',
+      id: 'maskBase', name: itkT(ITK_TEXT.ebenen.grundflaechePraefix, { farbe: KBR_NAMES[d.maskBase] }), group: ITK_TEXT.ebenen.gruppeMaske,
       hit: { kind: 'maskBase', mask: true },
       draw: ctx => { ctx.fillStyle = d.maskBase; ctx.fillRect(0, 0, ITK_W, ITK_H); },
       svg: () => '<rect x="0" y="0" width="' + ITK_W + '" height="' + ITK_H +
                  '" fill="' + d.maskBase + '"/>'
     });
     L.push({
-      id: 'maskEdge', name: 'Swoosh-Kante ' + KBR_NAMES[d.swooshColor], group: 'Maske',
+      id: 'maskEdge', name: itkT(ITK_TEXT.ebenen.swooshKantePraefix, { farbe: KBR_NAMES[d.swooshColor] }), group: ITK_TEXT.ebenen.gruppeMaske,
       hit: { kind: 'maskEdge', mask: true },
       draw: ctx => {
         ctx.save();
@@ -585,7 +637,7 @@ function itkBuildLayers(m) {
     });
     const mcid = 'itkclip-' + m.id + '-maskphoto';
     L.push({
-      id: 'photo', name: 'Foto', group: 'Maske', hit: null,
+      id: 'photo', name: ITK_TEXT.ebenen.foto, group: ITK_TEXT.ebenen.gruppeMaske, hit: null,
       draw: ctx => {
         ctx.save();
         itkMaskPhotoTransform(ctx);
@@ -609,7 +661,7 @@ function itkBuildLayers(m) {
   const { photo } = itkRegions(split, ITK_W, ITK_H, ITK_GAP);
   const pcid = 'itkclip-' + m.id + '-photo';
   L.push({
-    id: 'photo', name: 'Foto', group: null, hit: null,
+    id: 'photo', name: ITK_TEXT.ebenen.foto, group: null, hit: null,
     draw: ctx => { itkDrawPhoto(ctx, m, split ? photo : null); },
     defs: split ? () => itkClipRectSVG(pcid, photo) : null,
     svg: () => itkPhotoSVG(m, split ? 'url(#' + pcid + ')' : null)
@@ -623,8 +675,10 @@ function itkBuildLayers(m) {
     const kcid = 'itkclip-' + m.id + '-tile' + i;
     const tsrc = zeigeKachelbild ? t.src : null;
     L.push({
-      id: 'tile' + i, group: 'Kacheln',
-      name: 'Kachel ' + (i + 1) + (tsrc ? ' – Bild' : ' – ' + KBR_NAMES[t.color]),
+      id: 'tile' + i, group: ITK_TEXT.ebenen.gruppeKacheln,
+      name: itkT(ITK_TEXT.ebenen.kachelPraefix, { n: i + 1 }) +
+            (tsrc ? ITK_TEXT.ebenen.kachelBildZusatz
+                  : itkT(ITK_TEXT.ebenen.kachelFarbeZusatz, { farbe: KBR_NAMES[t.color] })),
       hit: { kind: 'tile', index: i, rect: t },
       draw: ctx => {
         // Solange ein eingesetztes Bild noch lädt, steht die Farbe – so
@@ -657,7 +711,7 @@ function itkBuildLayers(m) {
     const t = d.tiles[0];
     const tcid = 'itkclip-' + m.id + '-swooshtile';
     L.push({
-      id: 'swooshTile', name: 'Swoosh in Kachel', group: null,
+      id: 'swooshTile', name: ITK_TEXT.ebenen.swooshInKachel, group: null,
       // Nach der Kachel registriert und als Pfad geprüft: der Doppelklick
       // trifft den Swoosh nur dort, wo er wirklich liegt – daneben bleibt die
       // Kachel erreichbar.
@@ -687,7 +741,7 @@ function itkBuildLayers(m) {
     const rect = { x: p.x + p.w - w - p.w * 0.02, y: p.y + (p.h - h) / 2, w, h };
     const scid = 'itkclip-' + m.id + '-swooshphoto';
     L.push({
-      id: 'swooshPhoto', name: 'Swoosh auf Foto', group: null,
+      id: 'swooshPhoto', name: ITK_TEXT.ebenen.swooshAufFoto, group: null,
       hit: { kind: 'swooshPhoto', rect },
       draw: ctx => {
         ctx.save();
@@ -720,7 +774,7 @@ function itkPushIconLayers(L, m) {
   const box = { x: cx - S / 2, y: cy - S / 2, w: S, h: S };
 
   L.push({
-    id: 'iconFrame', name: 'Icon-Kontur (weiß)', group: 'Icon', hit: null,
+    id: 'iconFrame', name: ITK_TEXT.ebenen.iconKontur, group: ITK_TEXT.ebenen.gruppeIcon, hit: null,
     draw: ctx => {
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(box.x - g, box.y - g, S + g * 2, S + g * 2);
@@ -729,7 +783,7 @@ function itkPushIconLayers(L, m) {
                '" width="' + (S + g * 2) + '" height="' + (S + g * 2) + '" fill="#FFFFFF"/>'
   });
   L.push({
-    id: 'iconArea', name: 'Icon-Fläche ' + KBR_NAMES[d.iconBg], group: 'Icon',
+    id: 'iconArea', name: itkT(ITK_TEXT.ebenen.iconFlaechePraefix, { farbe: KBR_NAMES[d.iconBg] }), group: ITK_TEXT.ebenen.gruppeIcon,
     // Der Treffer sitzt auf der Fläche, nicht auf der Glyphe: die fehlt,
     // solange sie noch lädt.
     hit: { kind: 'icon', rect: box },
@@ -738,7 +792,7 @@ function itkPushIconLayers(L, m) {
                '" height="' + S + '" fill="' + d.iconBg + '"/>'
   });
   L.push({
-    id: 'iconGlyph', name: 'Icon-Glyphe', group: 'Icon', hit: null,
+    id: 'iconGlyph', name: ITK_TEXT.ebenen.iconGlyphe, group: ITK_TEXT.ebenen.gruppeIcon, hit: null,
     draw: ctx => {
       const rec = itkIconImage(d.iconKey, d.iconFg);
       if (!rec) return;
@@ -823,7 +877,7 @@ function itkRedraw() {
   itkPreviewCanvases.forEach(rec => {
     itkCenterCrop(itkCanvas, rec.fmt.w, rec.fmt.h, rec.canvas);
     const draw = ITK_OVERLAYS[rec.overlay];
-    if (draw) draw(rec.canvas.getContext('2d'), rec.fmt.w, rec.fmt.h, itkShowDanger);
+    if (draw && itkShowOverlays) draw(rec.canvas.getContext('2d'), rec.fmt.w, rec.fmt.h);
   });
 }
 
@@ -845,16 +899,15 @@ function itkCenterCrop(src, tW, tH, dest) {
 // Sie landen ausschließlich auf den Vorschau-Canvases, nie auf dem
 // Master-Canvas, und können den JPG-Export daher nicht erreichen.
 // ---------------------------------------------------------------------
-const ITK_OV_RED  = 'rgba(214, 8, 18, 0.60)';
 const ITK_OV_PINK = '#e5007d';
 const ITK_OV_FONT = "'Inter', 'Helvetica Neue', Arial, sans-serif";
-const ITK_OV_HEAD = 'Lorem ipsum dolor sit amet consetetur sadipscing elitr';
-const ITK_OV_VIEWS = '362', ITK_OV_LIKES = '12', ITK_OV_PAGE = '1 von 5';
-const ITK_OV_NAME  = 'Max Mustermensch';
-const ITK_OV_META  = 'in 2 Jahren | 94 Abrufe | 1 Reaktion';
+const ITK_OV_HEAD = ITK_TEXT.platzhalter.headlineLang;
+const ITK_OV_VIEWS = ITK_TEXT.platzhalter.aufrufe, ITK_OV_LIKES = ITK_TEXT.platzhalter.reaktionen,
+      ITK_OV_PAGE = ITK_TEXT.platzhalter.seite;
+const ITK_OV_NAME  = ITK_TEXT.platzhalter.name;
+const ITK_OV_META  = ITK_TEXT.platzhalter.metaVoll;
 
 function itkOvUnit(w, h) { return Math.sqrt(w * h); }
-function itkOvDanger(ctx, x, y, w, h, show) { if (!show) return; ctx.fillStyle = ITK_OV_RED; ctx.fillRect(x, y, w, h); }
 function itkOvScrim(ctx, x, y, w, h, fromTop, strength) {
   const s = strength == null ? 0.88 : strength;
   const g = ctx.createLinearGradient(0, fromTop ? y : y + h, 0, fromTop ? y + h : y);
@@ -931,17 +984,15 @@ function itkOvClip(ctx, text, maxW, size, weight) {
   while (t.length > 1 && ctx.measureText(t + '…').width > maxW) t = t.slice(0, -1);
   return t.replace(/\s+$/, '') + '…';
 }
-function itkOvBanner(ctx, w, h, danger, withAvatar) {
+function itkOvBanner(ctx, w, h, withAvatar) {
   const u = itkOvUnit(w, h), pad = 0.042 * u;
   itkOvScrim(ctx, 0, 0, w, h * 0.60, true);
-  itkOvDanger(ctx, 0, 0, w, h * 0.50, danger);
   const hs = 0.055 * u, ss = 0.030 * u;
-  itkOvText(ctx, 'Lorem ipsum dolor sit amet', pad, h * 0.19, hs, 700);
-  itkOvText(ctx, 'consetetur sadipscing elitr', pad, h * 0.30, hs, 700);
+  itkOvText(ctx, ITK_TEXT.platzhalter.headlineZeile1, pad, h * 0.19, hs, 700);
+  itkOvText(ctx, ITK_TEXT.platzhalter.headlineZeile2, pad, h * 0.30, hs, 700);
   itkOvText(ctx, itkOvClip(ctx, ITK_OV_HEAD, w - pad * 2, ss, 400), pad, h * 0.385, ss, 400);
-  itkOvText(ctx, 'Datum der Veranstaltung: 11 Sep.', pad, h * 0.455, ss, 400);
+  itkOvText(ctx, ITK_TEXT.platzhalter.datumVeranstaltung, pad, h * 0.455, ss, 400);
   itkOvScrim(ctx, 0, h * 0.62, w, h * 0.38, false);
-  itkOvDanger(ctx, 0, h * 0.80, w, h * 0.20, danger);
   const ms = 0.028 * u;
   let tx = pad;
   if (withAvatar) { const r = 0.035 * w; itkOvCircle(ctx, pad + r, h * 0.895, r); tx = pad + r * 2 + pad * 0.6; }
@@ -952,105 +1003,94 @@ function itkOvBanner(ctx, w, h, danger, withAvatar) {
 
 const ITK_OVERLAYS = {
   none: null,
-  bottomHeadline(ctx, w, h, danger) {
+  bottomHeadline(ctx, w, h) {
     const u = itkOvUnit(w, h), pad = 0.042 * u;
     itkOvScrim(ctx, 0, h * 0.42, w, h * 0.58, false);
-    itkOvDanger(ctx, 0, h * 0.615, w, h * 0.385, danger);
-    itkOvText(ctx, 'Mission My-T', pad, h * 0.70, 0.021 * u, 400);
+    itkOvText(ctx, ITK_TEXT.platzhalter.missionName, pad, h * 0.70, 0.021 * u, 400);
     const hs = 0.053 * u;
     itkOvText(ctx, itkOvClip(ctx, ITK_OV_HEAD, w - pad * 2, hs, 700), pad, h * 0.80, hs, 700);
     itkOvStatsRow(ctx, h * 0.915, u, pad);
     itkOvPlayerRow(ctx, w, h * 0.915, u, pad);
   },
-  tagsTop(ctx, w, h, danger) {
+  tagsTop(ctx, w, h) {
     const u = itkOvUnit(w, h), pad = 0.042 * u;
     const pillH = 0.075 * h, gapY = 0.025 * h, padY = 0.04 * h;
     const band = padY * 2 + pillH * 2 + gapY;
     itkOvScrim(ctx, 0, 0, w, band * 1.25, true);
-    itkOvDanger(ctx, 0, 0, w, band, danger);
     const pillW = 0.185 * w, gapX = 0.018 * w;
     for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++)
       itkOvPill(ctx, pad + c * (pillW + gapX), padY + r * (pillH + gapY), pillW, pillH);
-    itkOvText(ctx, 'Bereits gelesen', w - pad, padY + pillH * 0.8, 0.027 * u, 400, 'right');
+    itkOvText(ctx, ITK_TEXT.platzhalter.bereitsGelesen, w - pad, padY + pillH * 0.8, 0.027 * u, 400, 'right');
   },
-  smartFeedBig(ctx, w, h, danger) {
+  smartFeedBig(ctx, w, h) {
     const u = itkOvUnit(w, h), pad = 0.042 * u;
     itkOvScrim(ctx, 0, 0, w, h * 0.55, true);
-    itkOvDanger(ctx, 0, 0, w, h * 0.48, danger);
     const pillH = 0.062 * h, pillW = 0.15 * w, gapX = 0.017 * w;
     for (let c = 0; c < 3; c++) itkOvPill(ctx, pad + c * (pillW + gapX), h * 0.055, pillW, pillH);
     const hs = 0.062 * u;
-    itkOvText(ctx, 'Lorem ipsum dolor sit amet', pad, h * 0.32, hs, 700);
-    itkOvText(ctx, 'consetetur sadipscing elitr', pad, h * 0.44, hs, 700);
+    itkOvText(ctx, ITK_TEXT.platzhalter.headlineZeile1, pad, h * 0.32, hs, 700);
+    itkOvText(ctx, ITK_TEXT.platzhalter.headlineZeile2, pad, h * 0.44, hs, 700);
     itkOvScrim(ctx, 0, h * 0.58, w, h * 0.42, false);
-    itkOvDanger(ctx, 0, h * 0.74, w, h * 0.26, danger);
     const r = 0.038 * w, tx = pad + r * 2 + pad * 0.6;
     itkOvCircle(ctx, pad + r, h * 0.855, r);
     itkOvText(ctx, ITK_OV_NAME, tx, h * 0.845, 0.026 * u, 700);
     itkOvText(ctx, itkOvClip(ctx, ITK_OV_META, w * 0.45, 0.024 * u, 400), tx, h * 0.915, 0.024 * u, 400);
     itkOvStatsRow(ctx, h * 0.88, u, w - pad - 0.20 * u);
   },
-  smartFeedMedium(ctx, w, h, danger) {
+  smartFeedMedium(ctx, w, h) {
     const u = itkOvUnit(w, h), pad = 0.042 * u;
     itkOvScrim(ctx, 0, 0, w, h * 0.50, true);
-    itkOvDanger(ctx, 0, 0, w, h * 0.42, danger);
     const pillH = 0.065 * h, pillW = 0.24 * w, gapX = 0.02 * w;
     for (let c = 0; c < 3; c++) itkOvPill(ctx, pad + c * (pillW + gapX), h * 0.06, pillW, pillH);
     const cr = 0.045 * w, hs = 0.055 * u, tx = pad + cr * 2 + pad * 0.5;
     itkOvCircle(ctx, pad + cr, h * 0.265, cr);
-    itkOvText(ctx, 'Lorem ipsum dolor sit amet', tx, h * 0.28, hs, 700);
-    itkOvText(ctx, 'consetetur sadipscing elitr', tx, h * 0.38, hs, 700);
+    itkOvText(ctx, ITK_TEXT.platzhalter.headlineZeile1, tx, h * 0.28, hs, 700);
+    itkOvText(ctx, ITK_TEXT.platzhalter.headlineZeile2, tx, h * 0.38, hs, 700);
     itkOvScrim(ctx, 0, h * 0.54, w, h * 0.46, false);
-    itkOvDanger(ctx, 0, h * 0.71, w, h * 0.29, danger);
     const r = 0.055 * w, bx = pad + r * 2 + pad * 0.6;
     itkOvCircle(ctx, pad + r, h * 0.845, r);
     itkOvText(ctx, ITK_OV_NAME, bx, h * 0.815, 0.030 * u, 700);
     itkOvText(ctx, itkOvClip(ctx, ITK_OV_META, w - bx - pad, 0.028 * u, 400), bx, h * 0.90, 0.028 * u, 400);
   },
-  smartFeedSmall(ctx, w, h, danger) {
+  smartFeedSmall(ctx, w, h) {
     const u = itkOvUnit(w, h), pad = 0.05 * u;
     itkOvScrim(ctx, 0, 0, w, h * 0.50, true);
-    itkOvDanger(ctx, 0, 0, w, h * 0.42, danger);
     const pillH = 0.09 * h, pillW = 0.26 * w, gapX = 0.03 * w;
     for (let c = 0; c < 3; c++) itkOvPill(ctx, pad + c * (pillW + gapX), h * 0.07, pillW, pillH);
     const cr = 0.055 * w, tx = pad + cr * 2 + pad * 0.5;
     itkOvCircle(ctx, pad + cr, h * 0.30, cr);
-    itkOvText(ctx, itkOvClip(ctx, 'Lorem ipsum dolor sit amet', w - tx - pad, 0.075 * u, 700), tx, h * 0.335, 0.075 * u, 700);
+    itkOvText(ctx, itkOvClip(ctx, ITK_TEXT.platzhalter.headlineZeile1, w - tx - pad, 0.075 * u, 700), tx, h * 0.335, 0.075 * u, 700);
     itkOvScrim(ctx, 0, h * 0.50, w, h * 0.50, false);
-    itkOvDanger(ctx, 0, h * 0.62, w, h * 0.38, danger);
     const r = 0.075 * w, bx = pad + r * 2 + pad * 0.5;
     itkOvCircle(ctx, pad + r, h * 0.80, r);
     itkOvText(ctx, ITK_OV_NAME, bx, h * 0.78, 0.070 * u, 700);
-    itkOvText(ctx, itkOvClip(ctx, 'in 2 Jahren | 94 Abrufe', w - bx - pad, 0.065 * u, 400), bx, h * 0.90, 0.065 * u, 400);
+    itkOvText(ctx, itkOvClip(ctx, ITK_TEXT.platzhalter.metaKurz, w - bx - pad, 0.065 * u, 400), bx, h * 0.90, 0.065 * u, 400);
   },
-  bannerTop(ctx, w, h, danger)      { itkOvBanner(ctx, w, h, danger, true); },
-  bannerTopPlain(ctx, w, h, danger) { itkOvBanner(ctx, w, h, danger, false); },
-  storyCard(ctx, w, h, danger) {
+  bannerTop(ctx, w, h)      { itkOvBanner(ctx, w, h, true); },
+  bannerTopPlain(ctx, w, h) { itkOvBanner(ctx, w, h, false); },
+  storyCard(ctx, w, h) {
     const u = itkOvUnit(w, h), pad = 0.042 * u;
     itkOvScrim(ctx, 0, 0, w, h * 0.52, true);
-    itkOvDanger(ctx, 0, 0, w, h * 0.41, danger);
     const hs = 0.058 * u;
-    itkOvText(ctx, 'Lorem ipsum dolor sit amet', pad, h * 0.215, hs, 700);
-    itkOvText(ctx, 'consetetur sadipscing elitr', pad, h * 0.30, hs, 700);
-    itkOvText(ctx, 'Datum', pad, h * 0.375, 0.028 * u, 400);
+    itkOvText(ctx, ITK_TEXT.platzhalter.headlineZeile1, pad, h * 0.215, hs, 700);
+    itkOvText(ctx, ITK_TEXT.platzhalter.headlineZeile2, pad, h * 0.30, hs, 700);
+    itkOvText(ctx, ITK_TEXT.platzhalter.datum, pad, h * 0.375, 0.028 * u, 400);
     itkOvScrim(ctx, 0, h * 0.58, w, h * 0.42, false);
-    itkOvDanger(ctx, 0, h * 0.74, w, h * 0.26, danger);
     const r = 0.068 * w, tx = pad + r * 2 + pad * 0.7;
     itkOvCircle(ctx, pad + r, h * 0.845, r);
     itkOvText(ctx, ITK_OV_NAME, tx, h * 0.83, 0.030 * u, 700);
     itkOvText(ctx, itkOvClip(ctx, ITK_OV_META, w - tx - pad, 0.028 * u, 400), tx, h * 0.895, 0.028 * u, 400);
   },
-  microsite(ctx, w, h, danger) {
+  microsite(ctx, w, h) {
     const u = itkOvUnit(w, h), pad = 0.045 * u;
-    itkOvDanger(ctx, 0, 0, w, h, danger);
     const hs = 0.062 * u, ss = 0.040 * u;
-    itkOvText(ctx, 'Lorem ipsum dolor sit amet', pad, h * 0.29, hs, 700);
-    itkOvText(ctx, 'consetetur sadipscing elitr', pad, h * 0.40, hs, 700);
-    itkOvText(ctx, itkOvClip(ctx, 'Lorem ipsum dolor sit amet consetetur', w - pad * 2, ss, 400), pad, h * 0.49, ss, 400);
-    itkOvText(ctx, 'Datum', pad, h * 0.575, ss, 400);
+    itkOvText(ctx, ITK_TEXT.platzhalter.headlineZeile1, pad, h * 0.29, hs, 700);
+    itkOvText(ctx, ITK_TEXT.platzhalter.headlineZeile2, pad, h * 0.40, hs, 700);
+    itkOvText(ctx, itkOvClip(ctx, ITK_TEXT.platzhalter.headlineMittel, w - pad * 2, ss, 400), pad, h * 0.49, ss, 400);
+    itkOvText(ctx, ITK_TEXT.platzhalter.datum, pad, h * 0.575, ss, 400);
     itkOvText(ctx, ITK_OV_NAME, pad, h * 0.735, 0.038 * u, 700);
-    itkOvText(ctx, 'in 2 Jahren | 94 Abrufe', pad, h * 0.815, 0.034 * u, 400);
-    itkOvText(ctx, 'Info', pad, h * 0.885, 0.030 * u, 400);
+    itkOvText(ctx, ITK_TEXT.platzhalter.metaKurz, pad, h * 0.815, 0.034 * u, 400);
+    itkOvText(ctx, ITK_TEXT.platzhalter.info, pad, h * 0.885, 0.030 * u, 400);
     itkOvStatsRow(ctx, h * 0.92, u, w - pad - 0.22 * u);
   }
 };
@@ -1147,7 +1187,7 @@ function itkDemoImage() {
     // Lautlos auf den Platzhalter zurückzufallen sieht aus wie ein Fehler im
     // Werkzeug. Beim Veröffentlichen fehlt die Datei am ehesten, weil sie
     // nicht mit hochgeladen wurde.
-    itkToast('testmotive.js nicht geladen – Platzhalter statt Beispielmotiv');
+    itkToast(ITK_TEXT.bild.fehlendesTestmotivToast);
     return itkDemoFallback();
   }
   let i = Math.floor(Math.random() * liste.length);
@@ -1172,7 +1212,7 @@ function itkDemoFallback() {
   x.fillRect(ITK_W * 0.55, ITK_H * 0.60, 300, ITK_H * 0.40);
   x.fillStyle = 'rgba(0,0,0,0.30)';
   x.font = '600 26px ' + ITK_OV_FONT; x.textAlign = 'center';
-  x.fillText('Testmotiv 1180 × 623', ITK_W / 2, ITK_H - 34);
+  x.fillText(ITK_TEXT.bild.platzhalterBeschriftung, ITK_W / 2, ITK_H - 34);
   return c.toDataURL('image/jpeg', 0.9);
 }
 
@@ -1204,7 +1244,7 @@ function itkSyncSteps() {
     bild: false,
     design: !hasImg,
     kacheln: !bereit || !area || !area.split,
-    swoosh: !bereit || tileCount > 1,
+    swoosh: !bereit || itkSwooshOptionsFor(d).length <= 1,
     vorlagen: false      // Vorlagen lassen sich auch ohne Bild pflegen
   };
   ITK_STEP_IDS.forEach(s => {
@@ -1214,13 +1254,17 @@ function itkSyncSteps() {
   });
 
   const sub = {
-    bild: hasImg ? 'Zoom ' + Math.round(m.scale * 100) + '%'
-                 : (itkIsFullTiles(d) ? 'ohne Foto' : 'kein Bild'),
-    design: (d.iconKey === 'none' ? 'ohne Icon' : 'Icon: ' + itkIconLabel(d.iconKey)) +
+    bild: hasImg ? itkT(ITK_TEXT.bild.unterzeileZoom, { p: Math.round(m.scale * 100) })
+                 : (itkIsFullTiles(d) ? ITK_TEXT.bild.unterzeileOhneFoto : ITK_TEXT.bild.unterzeileLeer),
+    design: (d.iconKey === 'none' ? ITK_TEXT.icon.unterzeileOhneIcon
+                                   : itkT(ITK_TEXT.icon.unterzeilePraefix, { name: itkIconLabel(d.iconKey) })) +
             ' · ' + (area ? area.label : '–'),
-    kacheln: area && area.split ? tileCount + (tileCount === 1 ? ' Kachel' : ' Kacheln') : 'keine Kacheln',
-    swoosh: lock.swoosh ? 'ab 2 Kacheln nicht möglich' : itkSwooshLabel(d.swoosh),
-    vorlagen: itkTemplates.length + (itkTemplates.length === 1 ? ' Vorlage' : ' Vorlagen')
+    kacheln: area && area.split
+      ? tileCount + (tileCount === 1 ? ITK_TEXT.kacheln.unterzeileEinzahl : ITK_TEXT.kacheln.unterzeileMehrzahl)
+      : ITK_TEXT.kacheln.unterzeileKeine,
+    swoosh: lock.swoosh ? ITK_TEXT.swoosh.unterzeileGesperrt : itkSwooshLabel(d.swoosh),
+    vorlagen: itkTemplates.length +
+      (itkTemplates.length === 1 ? ITK_TEXT.vorlagen.unterzeileEinzahl : ITK_TEXT.vorlagen.unterzeileMehrzahl)
   };
   ITK_STEP_IDS.forEach(s => {
     document.getElementById('itk-sub-' + s).textContent = sub[s];
@@ -1241,7 +1285,9 @@ function itkSyncSteps() {
   document.querySelectorAll('#itk-export-bar button, #itk-download-psd, #itk-download-svg')
     .forEach(b => { b.disabled = !bereit; });
   const cnt = document.getElementById('itk-export-count');
-  if (cnt) cnt.textContent = itkMotifs.length > 1 ? itkMotifs.length + ' Motive' : '1180 × 623 px';
+  if (cnt) cnt.textContent = itkMotifs.length > 1
+    ? itkT(ITK_TEXT.export.motiveAnzahl, { n: itkMotifs.length })
+    : ITK_TEXT.export.standardGroesse;
 
   // Nie alle Schritte zu lassen – der oberste freigeschaltete bleibt offen.
   if (!ITK_STEP_IDS.some(s => itkStepEl(s).classList.contains('open'))) {
@@ -1255,10 +1301,8 @@ function itkIconLabel(key) {
   const ic = ITK_ICONS.find(i => i.key === key);
   return ic ? ic.label : key;
 }
-const ITK_SWOOSH_LABELS = {
-  none: 'kein Swoosh', photo: 'auf Bild', tile: 'in Kachel', mask: 'als Maske'
-};
-function itkSwooshLabel(k) { return ITK_SWOOSH_LABELS[k] || k; }
+
+function itkSwooshLabel(k) { return ITK_TEXT.swoosh.kurzlabel[k] || k; }
 
 // ---------------------------------------------------------------------
 // 11. AUSWAHLRASTER: KACHELBEREICHE
@@ -1286,7 +1330,7 @@ function itkBuildAreaGrid() {
     el.className = 'itk-choice' + (a.id === m.design.areaId ? ' active' : '');
     el.innerHTML = `<div class="itk-choice-vis">${itkAreaThumbHTML(a)}</div>
                     <div class="itk-choice-cap">${a.label}</div>`;
-    el.title = a.label + (a.min > 1 ? ' (mindestens ' + a.min + ' Kacheln)' : '');
+    el.title = a.label + (a.min > 1 ? itkT(ITK_TEXT.bereichMindestensHinweis, { n: a.min }) : '');
     el.addEventListener('click', () => itkSelectArea(a.id));
     itkBindHover(el, 'area:' + a.id, mm => itkApplyArea(mm, a.id));
     grid.appendChild(el);
@@ -1300,13 +1344,11 @@ function itkApplyArea(m, id) {
   d.areaId = id;
   if (!area.split) {
     d.tiles = [];
-    if (d.swoosh === 'tile') d.swoosh = 'photo';
   } else {
     d.tileCount = Math.max(area.min, Math.min(5, d.tileCount));
     itkRebuildTiles(m, false);
-    if (d.tiles.length > 1 && d.swoosh !== 'none') d.swoosh = 'none';
-    if (d.swoosh === 'mask') d.swoosh = 'none';
   }
+  if (!itkSwooshOptionsFor(d).includes(d.swoosh)) d.swoosh = 'none';
   itkEnforceSwooshColor(m);
 }
 
@@ -1453,17 +1495,20 @@ function itkSwooshThumbSVG(id, design) {
 }
 
 const ITK_SWOOSH_OPTS = [
-  { id: 'none',  label: 'Kein Swoosh' },
-  { id: 'photo', label: 'Swoosh auf Bild' },
-  { id: 'tile',  label: 'Swoosh in Kachel' },
-  { id: 'mask',  label: 'Swoosh als Maske' }
+  { id: 'none',  label: ITK_TEXT.swoosh.optionen.none },
+  { id: 'photo', label: ITK_TEXT.swoosh.optionen.photo },
+  { id: 'tile',  label: ITK_TEXT.swoosh.optionen.tile },
+  { id: 'mask',  label: ITK_TEXT.swoosh.optionen.mask }
 ];
 
 function itkSwooshOptionsFor(d) {
   const area = itkArea(d.areaId);
   const n = area && area.split ? d.tiles.length : 0;
-  if (n === 0) return ['none', 'photo', 'mask'];   // ohne Kacheln: frei auf dem Bild oder als Maske
-  if (n === 1) return ['none', 'tile', 'photo'];   // eine Kachel: Swoosh darf hinein
+  const hasIcon = d.iconKey !== 'none';
+  // Mit Icon führt der einzige Weg zum Swoosh über eine Hintergrundkachel –
+  // „auf Bild“ und „als Maske“ würden sich mit dem mittig sitzenden Icon beißen.
+  if (n === 0) return hasIcon ? ['none'] : ['none', 'photo', 'mask'];
+  if (n === 1) return ['none', 'tile'];   // eine Kachel: Swoosh darf nur hinein, nicht mehr aufs Bild
   return ['none'];
 }
 
@@ -1499,7 +1544,7 @@ function itkBuildSwooshChips() {
 
   if (d.swoosh === 'none') {
     field.style.display = 'none';
-    note.textContent = 'Der Swoosh steht zur Verfügung, solange höchstens eine Kachel im Einsatz ist.';
+    note.textContent = ITK_TEXT.swoosh.hinweisKeinSwoosh;
     return;
   }
   field.style.display = '';
@@ -1507,16 +1552,16 @@ function itkBuildSwooshChips() {
   let allowed, why;
   if (d.swoosh === 'photo') {
     allowed = KBR_SWOOSH_ON_PHOTO;
-    why = 'Auf dem Foto sind Hellgrün und Hellblau zugelassen.';
+    why = ITK_TEXT.swoosh.hinweisAufBild;
   } else if (d.swoosh === 'tile') {
     const base = d.tiles[0] ? d.tiles[0].color : KBR.navy;
     allowed = kbrAllowedOn(base);
-    why = `Auf ${KBR_NAMES[base]} ist ${allowed.map(c => KBR_NAMES[c]).join(' oder ')} erlaubt. ` +
-          'Die Kachelfarbe änderst du per Doppelklick auf die Kachel.';
+    why = itkT(ITK_TEXT.swoosh.hinweisInKachel,
+      { farbe: KBR_NAMES[base], erlaubt: allowed.map(c => KBR_NAMES[c]).join(' oder ') });
   } else {
     allowed = kbrAllowedOn(d.maskBase);
-    why = `Fläche ${KBR_NAMES[d.maskBase]} – Kante in ${allowed.map(c => KBR_NAMES[c]).join(' oder ')}. ` +
-          'Die Flächenfarbe änderst du per Doppelklick auf die farbige Fläche.';
+    why = itkT(ITK_TEXT.swoosh.hinweisAlsMaske,
+      { farbe: KBR_NAMES[d.maskBase], erlaubt: allowed.map(c => KBR_NAMES[c]).join(' oder ') });
   }
   d.swooshColor = kbrFix(d.swooshColor, allowed);
 
@@ -1586,8 +1631,8 @@ function itkOpenColorPop(hit, e) {
 
   if (hit.kind === 'tile') {
     options = KBR_PRIMARIES; current = d.tiles[hit.index].color;
-    label = 'Kachelfarbe';
-    hint = 'Kacheln nutzen ausschließlich die drei Primärfarben.';
+    label = ITK_TEXT.popup.kachelfarbeLabel;
+    hint = ITK_TEXT.popup.kachelfarbeHinweis;
     apply = c => { d.tiles[hit.index].color = c; d.tiles[hit.index].src = null;
                    itkEnforceSwooshColor(m); };
     // Bilder in einzelnen Kacheln gibt es nur im Modus ohne Foto – sonst
@@ -1595,34 +1640,34 @@ function itkOpenColorPop(hit, e) {
     if (itkIsFullTiles(d)) {
       extra = { hasImg: !!d.tiles[hit.index].src, index: hit.index };
       hint = d.tiles[hit.index].src
-        ? 'Eine Farbe zu wählen ersetzt das Bild wieder.'
-        : 'Kacheln nutzen die drei Primärfarben – oder ein eigenes Bild.';
+        ? ITK_TEXT.popup.kachelBildErsetzenHinweis
+        : ITK_TEXT.popup.kachelOderBildHinweis;
     }
   } else if (hit.kind === 'icon') {
     options = KBR_PRIMARIES; current = d.iconBg;
-    label = 'Icon-Fläche';
-    hint = 'Die Glyphe übernimmt automatisch die passende Sekundärfarbe.';
+    label = ITK_TEXT.popup.iconFlaecheLabel;
+    hint = ITK_TEXT.popup.iconFlaecheHinweis;
     apply = c => { d.iconBg = c; d.iconFg = kbrAllowedOn(c)[0]; };
   } else if (hit.kind === 'maskBase') {
     options = KBR_PRIMARIES; current = d.maskBase;
-    label = 'Farbfläche';
-    hint = 'Die Swoosh-Kante wird auf eine erlaubte Sekundärfarbe gesetzt.';
+    label = ITK_TEXT.popup.maskenflaecheLabel;
+    hint = ITK_TEXT.popup.maskenflaecheHinweis;
     apply = c => { d.maskBase = c; d.swooshColor = kbrFix(d.swooshColor, kbrAllowedOn(c)); };
   } else if (hit.kind === 'maskEdge') {
     options = kbrAllowedOn(d.maskBase); current = d.swooshColor;
-    label = 'Swoosh-Kante';
-    hint = `Auf ${KBR_NAMES[d.maskBase]} zulässig.`;
+    label = ITK_TEXT.popup.maskenkanteLabel;
+    hint = itkT(ITK_TEXT.popup.zulaessigAuf, { farbe: KBR_NAMES[d.maskBase] });
     apply = c => { d.swooshColor = c; };
   } else if (hit.kind === 'swooshTile') {
     const base = d.tiles[0] ? d.tiles[0].color : KBR.navy;
     options = kbrAllowedOn(base); current = d.swooshColor;
-    label = 'Swoosh in Kachel';
-    hint = `Auf ${KBR_NAMES[base]} zulässig.`;
+    label = ITK_TEXT.popup.swooshInKachelLabel;
+    hint = itkT(ITK_TEXT.popup.zulaessigAuf, { farbe: KBR_NAMES[base] });
     apply = c => { d.swooshColor = c; };
   } else if (hit.kind === 'swooshPhoto') {
     options = KBR_SWOOSH_ON_PHOTO; current = d.swooshColor;
-    label = 'Swoosh auf Bild';
-    hint = 'Auf dem Foto sind Hellgrün und Hellblau zugelassen.';
+    label = ITK_TEXT.popup.swooshAufBildLabel;
+    hint = ITK_TEXT.popup.swooshAufBildHinweis;
     apply = c => { d.swooshColor = c; };
   } else return;
 
@@ -1637,7 +1682,7 @@ function itkOpenColorPop(hit, e) {
     pick.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
       'stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18"/>' +
       '<circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' +
-      (extra.hasImg ? 'Bild tauschen' : 'Bild einsetzen');
+      (extra.hasImg ? ITK_TEXT.popup.bildTauschenBtn : ITK_TEXT.popup.bildEinsetzenBtn);
     pick.addEventListener('click', () => {
       itkTileTarget = extra.index;
       document.getElementById('itk-tile-file-input').click();
@@ -1646,7 +1691,7 @@ function itkOpenColorPop(hit, e) {
     act.appendChild(pick);
     if (extra.hasImg) {
       const del = document.createElement('button');
-      del.className = 'icon-btn'; del.title = 'Bild aus der Kachel nehmen';
+      del.className = 'icon-btn'; del.title = ITK_TEXT.popup.bildEntfernenTitel;
       del.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
         'stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/>' +
         '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>';
@@ -1698,12 +1743,12 @@ function itkBuildMotifs() {
   itkMotifs.forEach((m, i) => {
     const el = document.createElement('div');
     el.className = 'itk-page' + (m.id === itkActiveId ? ' active' : '');
-    el.title = 'Motiv ' + (i + 1) + (m.img ? '' : ' · noch ohne Bild');
+    el.title = itkT(ITK_TEXT.motive.seiteTitel, { n: i + 1 }) + (m.img ? '' : ITK_TEXT.motive.seiteOhneBildZusatz);
     el.innerHTML = ITK_PAGE_SVG + '<span class="itk-page-no">' + (i + 1) + '</span>';
     el.addEventListener('click', () => itkSelectMotif(m.id));
     if (itkMotifs.length > 1) {
       const del = document.createElement('span');
-      del.className = 'itk-page-del'; del.textContent = '×'; del.title = 'Motiv entfernen';
+      del.className = 'itk-page-del'; del.textContent = '×'; del.title = ITK_TEXT.motive.entfernenTitel;
       del.addEventListener('click', ev => { ev.stopPropagation(); itkRemoveMotif(m.id); });
       el.appendChild(del);
     }
@@ -1711,7 +1756,7 @@ function itkBuildMotifs() {
   });
 
   const add = document.createElement('button');
-  add.className = 'itk-page-add'; add.title = 'Weiteres Motiv anlegen';
+  add.className = 'itk-page-add'; add.title = ITK_TEXT.motive.hinzufuegenTitel;
   add.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
   add.addEventListener('click', itkAddMotif);
   wrap.appendChild(add);
@@ -1721,14 +1766,14 @@ function itkAddMotif() {
   // Neues Motiv erbt das Design des aktuellen – in der Praxis will man
   // meist dieselbe Gestaltung mit einem anderen Bild.
   const cur = itkM();
-  const m = itkNewMotif('Motiv ' + (itkMotifs.length + 1));
+  const m = itkNewMotif(itkT(ITK_TEXT.motive.standardname, { n: itkMotifs.length + 1 }));
   m.design = JSON.parse(JSON.stringify(cur.design));
   itkMotifs.push(m);
   itkActiveId = m.id;
   itkBuildMotifs();
   itkSyncAll();
   itkOpenStep('bild');
-  itkToast('Motiv angelegt – jetzt Bild wählen');
+  itkToast(ITK_TEXT.motive.angelegtToast);
 }
 
 function itkRemoveMotif(id) {
@@ -1762,12 +1807,12 @@ function itkLoadTemplates() {
 }
 function itkStoreTemplates() {
   try { localStorage.setItem(ITK_TPL_KEY, JSON.stringify(itkTemplates)); }
-  catch (e) { itkToast('Vorlagen konnten nicht gespeichert werden'); }
+  catch (e) { itkToast(ITK_TEXT.vorlagen.nichtGespeichertToast); }
 }
 
 function itkSaveTemplate() {
   const input = document.getElementById('itk-tpl-name');
-  const name = (input.value || '').trim() || 'Vorlage ' + (itkTemplates.length + 1);
+  const name = (input.value || '').trim() || itkT(ITK_TEXT.vorlagen.standardname, { n: itkTemplates.length + 1 });
   const d = JSON.parse(JSON.stringify(itkM().design));
   // Eingesetzte Kachelbilder bleiben draußen: eine Data-URL je Kachel würde
   // den Speicher des Browsers sprengen, und eine Vorlage beschreibt ohnehin
@@ -1780,7 +1825,8 @@ function itkSaveTemplate() {
   input.value = '';
   itkBuildTemplates();
   itkSyncSteps();
-  itkToast(existing >= 0 ? 'Vorlage „' + name + '“ aktualisiert' : 'Vorlage „' + name + '“ gesichert');
+  itkToast(existing >= 0 ? itkT(ITK_TEXT.vorlagen.aktualisiertToast, { name })
+                        : itkT(ITK_TEXT.vorlagen.gesichertToast, { name }));
 }
 
 function itkApplyTemplate(id) {
@@ -1788,9 +1834,10 @@ function itkApplyTemplate(id) {
   if (!t) return;
   const m = itkM();
   m.design = JSON.parse(JSON.stringify(t.design));
+  if (!itkSwooshOptionsFor(m.design).includes(m.design.swoosh)) m.design.swoosh = 'none';
   itkEnforceSwooshColor(m);
   itkSyncAll();
-  itkToast('Vorlage „' + t.name + '“ angewendet');
+  itkToast(itkT(ITK_TEXT.vorlagen.angewendetToast, { name: t.name }));
 }
 
 /* Umbenennen an Ort und Stelle: der Name wird zum Eingabefeld, Enter oder
@@ -1854,7 +1901,7 @@ function itkBuildTemplates() {
   const list = document.getElementById('itk-tpl-list');
   list.innerHTML = '';
   if (!itkTemplates.length) {
-    list.innerHTML = '<div class="itk-tpl-empty">Noch keine Vorlage gesichert. Design einstellen, oben benennen, „Sichern“.</div>';
+    list.innerHTML = '<div class="itk-tpl-empty">' + itkXmlAttr(ITK_TEXT.vorlagen.leerHinweis) + '</div>';
     return;
   }
   itkTemplates.forEach(t => {
@@ -1862,9 +1909,9 @@ function itkBuildTemplates() {
     const n = t.design.tiles ? t.design.tiles.length : 0;
     const meta = [
       area ? area.label : '–',
-      n ? n + ' Kacheln' : 'ohne Kacheln',
-      t.design.iconKey !== 'none' ? 'Icon' : null,
-      t.design.swoosh !== 'none' ? 'Swoosh ' + itkSwooshLabel(t.design.swoosh) : null
+      n ? n + ITK_TEXT.vorlagen.kachelnMehrzahl : ITK_TEXT.vorlagen.ohneKacheln,
+      t.design.iconKey !== 'none' ? ITK_TEXT.vorlagen.iconVorhanden : null,
+      t.design.swoosh !== 'none' ? ITK_TEXT.vorlagen.swooshPraefix + itkSwooshLabel(t.design.swoosh) : null
     ].filter(Boolean).join(' · ');
 
     const el = document.createElement('div');
@@ -1891,13 +1938,13 @@ function itkBuildTemplates() {
       b.addEventListener('click', fn);
       actions.appendChild(b);
     };
-    mkBtn('Vorlage anwenden',
+    mkBtn(ITK_TEXT.vorlagen.anwendenTitel,
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
       () => itkApplyTemplate(t.id));
-    mkBtn('Vorlage umbenennen',
+    mkBtn(ITK_TEXT.vorlagen.umbenennenTitel,
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
       () => itkRenameTemplate(t.id, nameEl));
-    mkBtn('Vorlage löschen',
+    mkBtn(ITK_TEXT.vorlagen.loeschenTitel,
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>',
       () => itkDeleteTemplate(t.id));
 
@@ -2092,7 +2139,7 @@ function itkInitControls() {
     itkApplyArea(m, 'full');
     itkSyncAll();
     itkOpenStep('kacheln');
-    itkToast('Ganze Fläche in Kacheln – Doppelklick setzt Farbe oder Bild');
+    itkToast(ITK_TEXT.kacheln.keinBildEingesetztToast);
   });
 
   document.getElementById('itk-tile-file-input').addEventListener('change', e => {
@@ -2107,7 +2154,7 @@ function itkInitControls() {
       t.src = ev.target.result;
       itkTileImage(t.src);          // Laden anstoßen, itkRedraw folgt von selbst
       itkSyncAll();
-      itkToast('Bild in die Kachel gesetzt');
+      itkToast(ITK_TEXT.kacheln.bildGesetztToast);
     };
     reader.readAsDataURL(file);
   });
@@ -2161,14 +2208,15 @@ function itkInitControls() {
     m.design.tileCount = +tiles.value;
     document.getElementById('itk-tiles-val').textContent = tiles.value;
     itkRebuildTiles(m, true);
-    if (m.design.tiles.length > 1 && m.design.swoosh !== 'none') m.design.swoosh = 'none';
+    if (!itkSwooshOptionsFor(m.design).includes(m.design.swoosh)) m.design.swoosh = 'none';
+    itkEnforceSwooshColor(m);
     itkSyncAll();
   });
   document.getElementById('itk-random-btn').addEventListener('click', () => {
     const m = itkM();
     itkRebuildTiles(m, false);
     itkSyncAll();
-    itkToast('Aufteilung & Farben neu gewürfelt');
+    itkToast(ITK_TEXT.kacheln.gewuerfeltToast);
   });
 
   document.getElementById('itk-tpl-save').addEventListener('click', itkSaveTemplate);
@@ -2177,18 +2225,18 @@ function itkInitControls() {
   });
 
   const widgetSel = document.getElementById('itk-widget-select');
-  const dangerCb = document.getElementById('itk-danger-toggle');
-  const syncDanger = () => {
+  const overlayCb = document.getElementById('itk-overlay-toggle');
+  const syncOverlayToggle = () => {
     const off = itkWidget === 'none';
-    dangerCb.disabled = off;
-    document.getElementById('itk-danger-wrap').classList.toggle('disabled', off);
+    overlayCb.disabled = off;
+    document.getElementById('itk-overlay-wrap').classList.toggle('disabled', off);
   };
   widgetSel.addEventListener('change', () => {
     itkWidget = widgetSel.value;
-    syncDanger(); itkBuildPreviewGrid(); itkRedraw();
+    syncOverlayToggle(); itkBuildPreviewGrid(); itkRedraw();
   });
-  dangerCb.addEventListener('change', () => { itkShowDanger = dangerCb.checked; itkRedraw(); });
-  syncDanger();
+  overlayCb.addEventListener('change', () => { itkShowOverlays = overlayCb.checked; itkRedraw(); });
+  syncOverlayToggle();
 
   document.getElementById('itk-download').addEventListener('click', () => itkExport(itkM()));
   document.getElementById('itk-download-psd').addEventListener('click', () => itkExportPSD(itkM()));
@@ -2221,18 +2269,20 @@ function itkSelectIcon(key) {
       itkRebuildTiles(m, false);
     }
   }
+  if (!itkSwooshOptionsFor(d).includes(d.swoosh)) d.swoosh = 'none';
+  itkEnforceSwooshColor(m);
   itkSyncAll();
 }
 
 async function itkHandleIconUpload(file) {
   const sel = document.getElementById('itk-icon-select');
   if (!file) return;
-  if (file.size > ITK_ICON_MAX_BYTES) { itkToast('SVG zu groß (max. 300 KB)'); return; }
+  if (file.size > ITK_ICON_MAX_BYTES) { itkToast(ITK_TEXT.icon.zuGrossToast); return; }
   if (!/\.svg$/i.test(file.name) && file.type !== 'image/svg+xml') {
-    itkToast('Bitte eine SVG-Datei wählen'); return;
+    itkToast(ITK_TEXT.icon.falscherTypToast); return;
   }
   const clean = itkSanitizeIconSVG(await file.text());
-  if (!clean) { itkToast('SVG konnte nicht gelesen werden'); return; }
+  if (!clean) { itkToast(ITK_TEXT.icon.unlesbarToast); return; }
   itkIconSrc.custom = clean;
   Object.keys(itkIconCache).forEach(k => { if (k.startsWith('custom|')) delete itkIconCache[k]; });
   itkCustomIconLabel = file.name.replace(/\.svg$/i, '').slice(0, 24);
@@ -2243,14 +2293,14 @@ async function itkHandleIconUpload(file) {
     opt.value = 'custom';
     sel.insertBefore(opt, sel.querySelector('option[value="__upload__"]'));
   }
-  opt.textContent = 'Eigenes: ' + itkCustomIconLabel;
+  opt.textContent = itkT(ITK_TEXT.icon.eigenesPraefix, { name: itkCustomIconLabel });
   sel.value = 'custom';
   itkSelectIcon('custom');
-  itkToast('Icon „' + itkCustomIconLabel + '“ hinzugefügt');
+  itkToast(itkT(ITK_TEXT.icon.hochgeladenToast, { name: itkCustomIconLabel }));
 }
 
 function itkExportName(m) {
-  return 'KBR_Intranet_Kachel_' + m.name.replace(/[^\w\-]+/g, '_');
+  return ITK_TEXT.export.dateiPraefix + m.name.replace(/[^\w\-]+/g, '_');
 }
 
 /* Blob-Downloads brauchen den Anker im Dokument, bevor click() greift –
@@ -2402,11 +2452,11 @@ function itkPsdTree(m) {
 }
 
 async function itkExportPSD(m) {
-  if (!m.img) { itkToast('Erst ein Bild wählen'); return; }
+  if (!m.img) { itkToast(ITK_TEXT.export.ersteinBildToast); return; }
   if (!window.agPsd || !agPsd.writePsdUint8Array) {
-    itkToast('PSD-Baustein fehlt – vendor/ag-psd.js prüfen'); return;
+    itkToast(ITK_TEXT.export.psdBausteinFehltToast); return;
   }
-  itkToast('PSD wird gebaut …');
+  itkToast(ITK_TEXT.export.psdWirdGebautToast);
   await itkEnsureIcon(m.design.iconKey, m.design.iconFg);
 
   const children = itkPsdTree(m);
@@ -2424,14 +2474,14 @@ async function itkExportPSD(m) {
 
   itkDownloadBlob(new Blob([bytes], { type: 'image/vnd.adobe.photoshop' }),
                   itkExportName(m) + '.psd');
-  itkToast('PSD gesichert · ' + (bytes.length / 1048576).toFixed(1) + ' MB');
+  itkToast(itkT(ITK_TEXT.export.psdGesichertToast, { mb: (bytes.length / 1048576).toFixed(1) }));
 }
 
 function itkExportSVG(m) {
-  if (!m.img) { itkToast('Erst ein Bild wählen'); return; }
+  if (!m.img) { itkToast(ITK_TEXT.export.ersteinBildToast); return; }
   const blob = new Blob([itkMotifSVG(m)], { type: 'image/svg+xml;charset=utf-8' });
   itkDownloadBlob(blob, itkExportName(m) + '.svg');
-  itkToast('SVG gesichert – Vektor für Illustrator und InDesign');
+  itkToast(ITK_TEXT.export.svgGesichertToast);
 }
 
 // ---------------------------------------------------------------------
@@ -2494,31 +2544,40 @@ function itkToast(msg) {
 // den Zustand so weit vorbereiten, dass das Erklärte auch sichtbar ist –
 // sonst zeigt der Spot auf ein gesperrtes Feld.
 // ---------------------------------------------------------------------
+
+/* Dieselben Icons wie auf den echten Buttons „Vollbild“ und „Zentrieren“
+   (siehe index.html) – klein im Tutorialtext, über {{icon:name}} gesetzt. */
+const ITK_TUT_ICONS = {
+  fuellen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H4v5"/><path d="M15 4h5v5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/></svg>',
+  zentrieren: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/></svg>'
+};
+function itkTutRenderIcons(html) {
+  return html.replace(/\{\{icon:(\w+)\}\}/g, (_, key) =>
+    '<i class="itk-tut-icon">' + (ITK_TUT_ICONS[key] || '') + '</i>');
+}
+
 const ITK_TUT = [
-  { sel: null, title: 'Willkommen im Kachel Generator',
-    text: '<p>Du baust hier ein Intranet-Motiv aus vier Bausteinen: <b>Bild</b>, <b>Kacheln</b> in den drei Primärfarben, <b>weißen Konturen</b> und dem organischen <b>Swoosh</b>.</p><p>Die Leiste links führt dich Schritt für Schritt durch – jeder Schritt schaltet erst frei, wenn der davor sitzt.</p>' },
+  { sel: null, title: ITK_TEXT.tutorial.schritt1Titel, text: ITK_TEXT.tutorial.schritt1Text },
 
-  { sel: '#itk-motifs', title: 'Mehrere Motive pro Session',
-    text: '<p>Jede nummerierte Seite ist ein eigenes Motiv. Mit <b>+</b> legst du eine weitere an – sie übernimmt das Design der aktuellen, du tauschst nur das Bild.</p><p>Ein Klick wechselt die Seite, das <b>×</b> entfernt sie.</p>' },
+  { sel: '#itk-stage', title: ITK_TEXT.tutorial.schritt2Titel, text: ITK_TEXT.tutorial.schritt2Text },
 
-  { sel: '#itk-step-bild', title: '1 · Bild',
-    text: '<p>Bild hochladen oder direkt ins Vorschaufenster ziehen. Ideal sind <b>1180 × 623 px</b>. <b>Testmotiv</b> erzeugt eine Platzhaltergrafik zum Ausprobieren.</p><p><b>Kein Bild</b> arbeitet ganz ohne Foto: die volle Fläche wird in Kacheln geteilt, und in jede Kachel lässt sich per Doppelklick ein eigenes Bild setzen.</p>',
+  { sel: '.itk-previews', title: ITK_TEXT.tutorial.schritt3Titel, text: ITK_TEXT.tutorial.schritt3Text },
+
+  { sel: '#itk-motifs', title: ITK_TEXT.tutorial.schritt4Titel, text: ITK_TEXT.tutorial.schritt4Text },
+
+  { sel: '#itk-step-bild', title: ITK_TEXT.tutorial.schritt5Titel, text: ITK_TEXT.tutorial.schritt5Text,
     before: () => { itkOpenStep('bild'); if (!itkM().img) itkApplyImageSrc(itkDemoImage(), itkM().name); } },
 
-  { sel: '#itk-zoom-field', title: 'Zoom & Ausschnitt',
-    text: '<p>Der Regler zoomt, die beiden Icons daneben sind <b>Füllen</b> und <b>Zentrieren</b>. Im Vorschaufenster verschiebst du das Bild mit gedrückter Maustaste, das Mausrad zoomt ebenfalls.</p><p>Weiter herauszoomen als bis zur <b>Füllen</b>-Stufe geht nicht – darunter bliebe unter dem Foto Fläche frei. Wie weit das ist, hängt vom Kachelbereich ab: Was Kacheln verdecken, muss das Bild nicht abdecken.</p>',
+  { sel: '#itk-zoom-field', title: ITK_TEXT.tutorial.schritt6Titel, text: ITK_TEXT.tutorial.schritt6Text,
     before: () => itkOpenStep('bild') },
 
-  { sel: '#itk-icon-field', title: '2 · Erst das Icon entscheiden',
-    text: '<p>Das Icon ist die erste Weiche. Es sitzt <b>immer mittig</b> im Layout – deshalb schrumpft die Auswahl der Kachelbereiche mit Icon von sechs auf drei mittig geteilte Varianten.</p><p>Eigene SVGs lassen sich hochladen; die Glyphe wird automatisch neu eingefärbt.</p>',
+  { sel: '#itk-icon-field', title: ITK_TEXT.tutorial.schritt7Titel, text: ITK_TEXT.tutorial.schritt7Text,
     before: () => itkOpenStep('design') },
 
-  { sel: '#itk-area-grid', title: 'Designposition wählen',
-    text: '<p>Der Kachelbereich bestimmt, welche Fläche das Foto behält und wo die Kacheln sitzen: von unten, von den Seiten oder als L aus Bodenband und Spalte.</p><p>Ganz links steht <b>Keine Kacheln</b> – dann arbeitest du nur mit Bild und Swoosh.</p>',
+  { sel: '#itk-area-grid', title: ITK_TEXT.tutorial.schritt8Titel, text: ITK_TEXT.tutorial.schritt8Text,
     before: () => itkOpenStep('design') },
 
-  { sel: '#itk-step-kacheln', title: '3 · Kacheln aufteilen',
-    text: '<p>Der Regler teilt den Bereich in <b>1 bis 5</b> Unterkacheln. Die L-Bereiche brauchen mindestens zwei.</p><p><b>Zufall</b> rechts unter dem Vorschaufenster würfelt Aufteilung und Farben neu – benachbarte Kacheln bekommen dabei nie dieselbe Farbe.</p>',
+  { sel: '#itk-step-kacheln', title: ITK_TEXT.tutorial.schritt9Titel, text: ITK_TEXT.tutorial.schritt9Text,
     before: () => {
       const m = itkM();
       if (!itkArea(m.design.areaId).split) {
@@ -2529,11 +2588,7 @@ const ITK_TUT = [
       itkOpenStep('kacheln');
     } },
 
-  { sel: '#itk-stage', title: 'Farben per Doppelklick',
-    text: '<p><b>Doppelklick auf jede Fläche</b> im Vorschaufenster öffnet die Farbauswahl.</p><p>Kacheln: Magenta, Navyblau, Waldgrün. Der Swoosh: Hellblau oder Hellgrün. Beim Icon wählst du die Fläche – die Glyphe nimmt automatisch die passende Sekundärfarbe an. Die weißen Konturen sind fix.</p><p>Im Modus <b>Kein Bild</b> steht dort zusätzlich <b>Bild einsetzen</b> – so bekommt jede Kachel ihr eigenes Motiv.</p>' },
-
-  { sel: '#itk-step-swoosh', title: '4 · Swoosh',
-    text: '<p>Der Swoosh steht bereit, solange <b>höchstens eine Kachel</b> im Spiel ist: einzeln auf dem Bild, innerhalb der einen Kachel oder groß als <b>Maske</b> über einer Farbfläche mit farbiger Kante.</p><p>Das Regelwerk gilt auch hier: Hellblau auf Navyblau, Hellgrün auf Waldgrün, Hellgrün oder Weiß auf Magenta.</p>',
+  { sel: '#itk-step-swoosh', title: ITK_TEXT.tutorial.schritt10Titel, text: ITK_TEXT.tutorial.schritt10Text,
     before: () => {
       const m = itkM();
       // Die L-Bereiche verlangen mindestens zwei Kacheln – dort wäre der
@@ -2550,16 +2605,16 @@ const ITK_TUT = [
       itkOpenStep('swoosh');
     } },
 
-  { sel: '#itk-step-vorlagen', title: '5 · Vorlagen',
-    text: '<p>Ein fertiges Design lässt sich benennen und sichern. Die Vorlage merkt sich Aufteilung, Farben, Icon und Swoosh – <b>nicht</b> das Bild. Über die drei Symbole je Eintrag wird sie <b>angewendet</b>, <b>umbenannt</b> oder <b>gelöscht</b>.</p><p>Darunter liegen die Formate zum Weiterbearbeiten: <b>PSD</b> öffnet in Photoshop mit getrennten Ebenen für Foto, jede Kachel, Swoosh und Icon. <b>SVG</b> hält alles außer dem Foto als Vektor für Illustrator.</p>',
+  { sel: '#itk-stage', title: ITK_TEXT.tutorial.schritt11Titel, text: ITK_TEXT.tutorial.schritt11Text },
+
+  { sel: '#itk-step-vorlagen', title: ITK_TEXT.tutorial.schritt12Titel, text: ITK_TEXT.tutorial.schritt12Text,
     before: () => itkOpenStep('vorlagen') },
 
-  { sel: '.itk-widget-bar', title: 'Alle Ausspielformate im Blick',
-    text: '<p>Rechts läuft dein Motiv durch alle Intranet-Formate mit – in ihrer echten Ausspielgröße.</p><p>Über <b>Widget-Vorschau</b> siehst du zusätzlich die Oberfläche, die das Intranet darüberlegt. Der Haken <b>Schutzzonen einblenden</b> markiert dann rot, wo kein wichtiges Bilddetail liegen darf.</p>' },
+  { sel: '#itk-export-bar', title: ITK_TEXT.tutorial.schritt13Titel, text: ITK_TEXT.tutorial.schritt13Text },
 
-  { sel: '#itk-export-bar', title: 'Export',
-    text: '<p>Die Exportleiste unten bleibt immer sichtbar und gibt das Masterformat <b>1180 × 623 px</b> als JPG aus – einzeln oder für alle Motive auf einmal. PSD und SVG liegen im Reiter <b>Vorlagen</b>.</p><p>Das war alles. Über <b>Tutorial</b> oben rechts kommst du jederzeit hierher zurück.</p>' }
+  { sel: null, title: ITK_TEXT.tutorial.schritt14Titel, text: ITK_TEXT.tutorial.schritt14Text }
 ];
+
 
 let itkTutIndex = -1;
 
@@ -2596,22 +2651,24 @@ function itkTutGo(i) {
     }, 260);
   } else {
     hole.style.display = 'none';
-    card.style.left = 'calc(50% - 165px)';
+    card.style.left = 'calc(50% - 190px)';
     card.style.top = 'calc(50% - 120px)';
   }
 
-  document.getElementById('itk-tut-step').textContent = 'Schritt ' + (i + 1) + ' / ' + ITK_TUT.length;
+  document.getElementById('itk-tut-step').textContent =
+    itkT(ITK_TEXT.tutorial.schrittZaehler, { i: i + 1, n: ITK_TUT.length });
   document.getElementById('itk-tut-title').textContent = step.title;
-  document.getElementById('itk-tut-text').innerHTML = step.text;
+  document.getElementById('itk-tut-text').innerHTML = itkTutRenderIcons(step.text);
   document.getElementById('itk-tut-prev').style.visibility = i === 0 ? 'hidden' : 'visible';
-  document.getElementById('itk-tut-next').textContent = i === ITK_TUT.length - 1 ? 'Fertig' : 'Weiter';
+  document.getElementById('itk-tut-next').textContent =
+    i === ITK_TUT.length - 1 ? ITK_TEXT.tutorial.fertig : ITK_TEXT.tutorial.weiter;
   document.getElementById('itk-tut-dots').innerHTML =
     ITK_TUT.map((_, k) => '<i class="' + (k === i ? 'on' : '') + '"></i>').join('');
 }
 
 /* Karte neben den Spot legen – bevorzugt rechts, sonst links, sonst unten. */
 function itkTutPlaceCard(card, r) {
-  const cw = 330, ch = card.offsetHeight || 220, gap = 18;
+  const cw = 380, ch = card.offsetHeight || 220, gap = 18;
   let left, top;
   if (r.right + gap + cw < innerWidth) left = r.right + gap;
   else if (r.left - gap - cw > 0) left = r.left - gap - cw;
@@ -2638,6 +2695,7 @@ function itkInitTutorial() {
 // 21. INIT
 // ---------------------------------------------------------------------
 function itkMount() {
+  itkApplyStaticTexts();
   itkCanvas = document.getElementById('itk-canvas');
   if (!itkCanvas) return;
   itkCtx = itkCanvas.getContext('2d');
@@ -2646,7 +2704,7 @@ function itkMount() {
 
   ITK_ICONS.forEach(ic => { itkIconSrc[ic.key] = itkSanitizeIconSVG(ic.svg); });
 
-  itkMotifs = [itkNewMotif('Motiv 1')];
+  itkMotifs = [itkNewMotif(itkT(ITK_TEXT.motive.standardname, { n: 1 }))];
   itkActiveId = itkMotifs[0].id;
 
   itkLoadTemplates();

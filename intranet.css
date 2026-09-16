@@ -355,14 +355,16 @@ input[type=range]::-moz-range-thumb {
 .itk-pop-rule { font-size: 10.5px; line-height: 1.5; color: var(--itk-t3); max-width: 230px; }
 
 /* ==================================================== Vorschauspalte */
-.itk-preview-eyebrow { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--itk-accent); margin-bottom: 4px; }
+.itk-widget-headline {
+  display: block; font-family: 'Rambla Alt Oscura', 'Inter', sans-serif;
+  font-size: 17px; font-weight: 700; color: var(--itk-accent); margin-bottom: 4px;
+}
 .itk-preview-sub { font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 20px; }
 .itk-widget-bar {
   display: flex; align-items: flex-end; gap: 24px; flex-wrap: wrap;
   padding-bottom: 18px; margin-bottom: 22px; border-bottom: 1px solid var(--itk-line-2);
 }
 .itk-widget-field { flex: 1 1 240px; max-width: 320px; }
-.itk-widget-field .itk-label { display: block; margin-bottom: 10px; }
 
 .itk-preview-grid { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
 .itk-preview-item { display: flex; flex-direction: column; align-items: center; gap: 5px; }
@@ -396,7 +398,7 @@ input[type=range]::-moz-range-thumb {
   transition: all .3s cubic-bezier(.4,0,.2,1); pointer-events: none;
 }
 .itk-tut-card {
-  position: fixed; width: 340px; max-width: calc(100vw - 32px); padding: 16px 18px 14px;
+  position: fixed; width: 380px; max-width: calc(100vw - 32px); padding: 16px 18px 14px;
   background: #141414; border: 1px solid var(--itk-line-3);
   box-shadow: 0 22px 60px rgba(0,0,0,.85); transition: all .3s cubic-bezier(.4,0,.2,1);
 }
@@ -413,6 +415,11 @@ input[type=range]::-moz-range-thumb {
 .itk-tut-card p { font-size: 12px; line-height: 1.6; color: rgba(255,255,255,0.62); }
 .itk-tut-card p + p { margin-top: 7px; }
 .itk-tut-card b { color: #fff; font-weight: 700; }
+.itk-tut-icon {
+  display: inline-flex; width: 14px; height: 14px; vertical-align: -2px;
+  margin: 0 1px; color: #fff;
+}
+.itk-tut-icon svg { width: 100%; height: 100%; }
 .itk-tut-nav { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
 .itk-tut-nav .itk-spacer { flex: 1; }
 .itk-tut-dots { display: flex; gap: 3px; }

@@ -12,10 +12,10 @@
 
   <!-- ============================== KOPFZEILE ============================== -->
   <div class="itk-header">
-    <div class="itk-title">Intranet Kachel Generator</div>
-    <button class="ctrl-btn" id="itk-tutorial-btn" title="Tutorial starten">
+    <div class="itk-title" data-t="kopf.titel">Intranet Kachel Generator</div>
+    <button class="ctrl-btn" id="itk-tutorial-btn" title="Tutorial starten" data-t-title="kopf.tutorialBtnTitel">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-      Tutorial
+      <span data-t="kopf.tutorialBtn">Tutorial</span>
     </button>
   </div>
 
@@ -26,18 +26,18 @@
 
       <!-- Vorschaufenster bleibt beim Scrollen sichtbar -->
       <div class="itk-sticky-preview">
-        <div class="itk-label" style="margin-bottom:10px">Motiv · 1180 × 623 px</div>
+        <div class="itk-label" style="margin-bottom:10px" data-t="motiv.label">Motiv · 1180 × 623 px</div>
         <div class="itk-canvas-wrap" id="itk-stage">
           <canvas id="itk-canvas" width="1180" height="623"></canvas>
           <div class="itk-drop-hint" id="itk-drop-hint">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            <p>Bild hierher ziehen oder auswählen</p>
-            <p class="sub">Ideal: 1180 × 623 px</p>
+            <p data-t="motiv.dropZeile1">Bild hierher ziehen oder auswählen</p>
+            <p class="sub" data-t="motiv.dropZeile2">Ideal: 1180 × 623 px</p>
           </div>
           <!-- Bedienhinweis: nur beim Überfahren des Motivs, danach wieder weg -->
           <div class="itk-stage-hint">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.5 3 3l8.5 6-2.5 2.5Z"/><path d="m13 13 8 8"/><path d="M14 8h7"/><path d="M17 5v6"/></svg>
-            <span><b>Doppelklick</b> öffnet die Farbauswahl · <b>Ziehen</b> verschiebt · <b>Scrollen</b> zoomt</span>
+            <span data-t-html="motiv.bedienhinweis"><b>Doppelklick</b> öffnet die Farbauswahl · <b>Ziehen</b> verschiebt · <b>Scrollen</b> zoomt</span>
           </div>
         </div>
 
@@ -45,9 +45,9 @@
           <div class="itk-pages" id="itk-motifs"></div>
           <span style="flex:1"></span>
           <button class="ctrl-btn primary itk-random" id="itk-random-btn" disabled
-                  title="Aufteilung &amp; Farben der Kacheln zufällig neu würfeln">
+                  title="Aufteilung &amp; Farben der Kacheln zufällig neu würfeln" data-t-title="motiv.zufallBtnTitel">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 16.5-5.5l3 3"/><path d="M21.5 12.5a10 10 0 0 1-16.5 5.5l-3-3"/></svg>
-            Zufall
+            <span data-t="motiv.zufallBtn">Zufall</span>
           </button>
         </div>
       </div>
@@ -59,39 +59,39 @@
         <section class="itk-step open" id="itk-step-bild">
           <button class="itk-step-head" data-step="bild">
             <span class="itk-step-num">1</span>
-            <span class="itk-step-title">Bild</span>
+            <span class="itk-step-title" data-t="bild.reiterTitel">Bild</span>
             <span class="itk-step-sub" id="itk-sub-bild">kein Bild</span>
             <svg class="itk-step-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
           <div class="itk-step-body">
             <div class="itk-btn-row">
-              <button class="icon-btn accent" id="itk-upload-btn" title="Bild wählen" aria-label="Bild wählen">
+              <button class="icon-btn accent" id="itk-upload-btn" title="Bild wählen" aria-label="Bild wählen" data-t-title="bild.uploadBtnTitel">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               </button>
-              <button class="icon-btn" id="itk-remove-btn" title="Bild entfernen" aria-label="Bild entfernen">
+              <button class="icon-btn" id="itk-remove-btn" title="Bild entfernen" aria-label="Bild entfernen" data-t-title="bild.entfernenBtnTitel">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
               </button>
-              <button class="ctrl-btn" id="itk-demo-btn" title="Testmotiv erzeugen">
+              <button class="ctrl-btn" id="itk-demo-btn" title="Testmotiv erzeugen" data-t-title="bild.testmotivBtnTitel">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8-5.8 1.9 5.8 1.9L12 18.4l1.9-5.8 5.8-1.9-5.8-1.9Z"/></svg>
-                Testmotiv
+                <span data-t="bild.testmotivBtn">Testmotiv</span>
               </button>
-              <button class="ctrl-btn" id="itk-nophoto-btn" title="Ohne Foto arbeiten – die ganze Fläche wird in Kacheln geteilt">
+              <button class="ctrl-btn" id="itk-nophoto-btn" title="Ohne Foto arbeiten – die ganze Fläche wird in Kacheln geteilt" data-t-title="bild.keinBildBtnTitel">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18"/><path d="M3 12h18"/><path d="M12 3v18"/></svg>
-                Kein Bild
+                <span data-t="bild.keinBildBtn">Kein Bild</span>
               </button>
             </div>
 
             <div class="itk-field" id="itk-zoom-field">
               <div class="itk-label-row">
-                <label class="itk-label" for="itk-zoom-slider">Zoom &amp; Ausschnitt</label>
+                <label class="itk-label" for="itk-zoom-slider" data-t="bild.zoomLabel">Zoom &amp; Ausschnitt</label>
                 <span class="itk-val" id="itk-zoom-val">100%</span>
               </div>
               <div class="itk-slider-row">
                 <input type="range" id="itk-zoom-slider" min="5" max="500" value="100" step="1">
-                <button class="icon-btn" id="itk-fill-btn" title="Füllen – kleinste Stufe ohne freie Ränder">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9H4V4"/><path d="M15 15h5v5"/><path d="M4 4l6 6"/><path d="M20 20l-6-6"/></svg>
+                <button class="icon-btn" id="itk-fill-btn" title="Füllen – kleinste Stufe ohne freie Ränder" data-t-title="bild.fuellenBtnTitel">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H4v5"/><path d="M15 4h5v5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/></svg>
                 </button>
-                <button class="icon-btn" id="itk-center-btn" title="Zentrieren">
+                <button class="icon-btn" id="itk-center-btn" title="Zentrieren" data-t-title="bild.zentrierenBtnTitel">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/></svg>
                 </button>
               </div>
@@ -103,29 +103,29 @@
         <section class="itk-step locked" id="itk-step-design">
           <button class="itk-step-head" data-step="design">
             <span class="itk-step-num">2</span>
-            <span class="itk-step-title">Icon &amp; Designposition</span>
+            <span class="itk-step-title" data-t="icon.reiterTitel">Icon &amp; Designposition</span>
             <span class="itk-step-sub" id="itk-sub-design">–</span>
             <svg class="itk-step-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
           <div class="itk-step-body">
             <div class="itk-field" id="itk-icon-field">
-              <label class="itk-label" for="itk-icon-select">Icon verwenden?</label>
+              <label class="itk-label" for="itk-icon-select" data-t="icon.frage">Icon verwenden?</label>
               <select class="itk-select" id="itk-icon-select">
-                <option value="none">Kein Icon</option>
-                <option value="party">Party</option>
-                <option value="aufruf">Aufruf</option>
-                <option value="event">Event</option>
-                <option value="team">Team</option>
-                <option value="emotionen">Emotionen</option>
-                <option value="__upload__">Eigenes SVG hochladen …</option>
+                <option value="none" data-t="icon.keinIcon">Kein Icon</option>
+                <option value="party" data-t="icon.symbole.party">Party</option>
+                <option value="aufruf" data-t="icon.symbole.aufruf">Aufruf</option>
+                <option value="event" data-t="icon.symbole.event">Event</option>
+                <option value="team" data-t="icon.symbole.team">Team</option>
+                <option value="emotionen" data-t="icon.symbole.emotionen">Emotionen</option>
+                <option value="__upload__" data-t="icon.eigenesHochladen">Eigenes SVG hochladen …</option>
               </select>
-              <div class="itk-note" id="itk-icon-note" style="display:none">
+              <div class="itk-note" id="itk-icon-note" style="display:none" data-t-html="icon.hinweisMittig">
                 Icons sitzen <b>immer mittig</b> im Layout. Deshalb stehen mit Icon nur die drei mittig geteilten Kachelbereiche zur Verfügung.
               </div>
             </div>
 
             <div class="itk-field">
-              <label class="itk-label">Designposition · Kachelbereich</label>
+              <label class="itk-label" data-t="icon.designpositionLabel">Designposition · Kachelbereich</label>
               <div class="itk-choice-grid" id="itk-area-grid"></div>
             </div>
           </div>
@@ -135,19 +135,19 @@
         <section class="itk-step locked" id="itk-step-kacheln">
           <button class="itk-step-head" data-step="kacheln">
             <span class="itk-step-num">3</span>
-            <span class="itk-step-title">Kacheln</span>
+            <span class="itk-step-title" data-t="kacheln.reiterTitel">Kacheln</span>
             <span class="itk-step-sub" id="itk-sub-kacheln">–</span>
             <svg class="itk-step-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
           <div class="itk-step-body">
             <div class="itk-field">
               <div class="itk-label-row">
-                <label class="itk-label" for="itk-tiles-slider">Anzahl der Kacheln</label>
+                <label class="itk-label" for="itk-tiles-slider" data-t="kacheln.anzahlLabel">Anzahl der Kacheln</label>
                 <span class="itk-val" id="itk-tiles-val">3</span>
               </div>
               <input type="range" id="itk-tiles-slider" min="1" max="5" value="3" step="1">
             </div>
-            <div class="itk-note">
+            <div class="itk-note" data-t-html="kacheln.hinweis">
               Farben einzeln setzen: <b>Doppelklick auf eine Kachel</b>. Erlaubt sind die drei Primärfarben Magenta, Navyblau und Waldgrün. Arbeitest du <b>ohne Foto</b>, lässt sich dort statt einer Farbe auch ein eigenes Bild in die Kachel setzen.
             </div>
           </div>
@@ -157,17 +157,17 @@
         <section class="itk-step locked" id="itk-step-swoosh">
           <button class="itk-step-head" data-step="swoosh">
             <span class="itk-step-num">4</span>
-            <span class="itk-step-title">Swoosh</span>
+            <span class="itk-step-title" data-t="swoosh.reiterTitel">Swoosh</span>
             <span class="itk-step-sub" id="itk-sub-swoosh">–</span>
             <svg class="itk-step-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
           <div class="itk-step-body">
             <div class="itk-field">
-              <label class="itk-label">Swoosh-Variante</label>
+              <label class="itk-label" data-t="swoosh.varianteLabel">Swoosh-Variante</label>
               <div class="itk-choice-grid cols-3" id="itk-swoosh-grid"></div>
             </div>
             <div class="itk-field" id="itk-swoosh-color-field">
-              <label class="itk-label">Swoosh-Farbe</label>
+              <label class="itk-label" data-t="swoosh.farbeLabel">Swoosh-Farbe</label>
               <div class="itk-chips" id="itk-swoosh-chips"></div>
             </div>
             <div class="itk-note" id="itk-swoosh-note"></div>
@@ -178,32 +178,32 @@
         <section class="itk-step locked" id="itk-step-vorlagen">
           <button class="itk-step-head" data-step="vorlagen">
             <span class="itk-step-num">5</span>
-            <span class="itk-step-title">Vorlagen</span>
+            <span class="itk-step-title" data-t="vorlagen.reiterTitel">Vorlagen</span>
             <span class="itk-step-sub" id="itk-sub-vorlagen">–</span>
             <svg class="itk-step-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
           <div class="itk-step-body">
             <div class="itk-field">
-              <label class="itk-label" for="itk-tpl-name">Aktuelles Design sichern</label>
+              <label class="itk-label" for="itk-tpl-name" data-t="vorlagen.sichernLabel">Aktuelles Design sichern</label>
               <div class="itk-slider-row">
-                <input type="text" class="itk-input" id="itk-tpl-name" placeholder="Name, z. B. „News zweifarbig“" maxlength="40">
-                <button class="ctrl-btn primary" id="itk-tpl-save">Sichern</button>
+                <input type="text" class="itk-input" id="itk-tpl-name" placeholder="Name, z. B. „News zweifarbig“" maxlength="40" data-t-placeholder="vorlagen.namePlatzhalter">
+                <button class="ctrl-btn primary" id="itk-tpl-save" data-t="vorlagen.sichernBtn">Sichern</button>
               </div>
             </div>
             <div class="itk-field">
-              <label class="itk-label">Gespeicherte Vorlagen</label>
+              <label class="itk-label" data-t="vorlagen.gespeicherteLabel">Gespeicherte Vorlagen</label>
               <div class="itk-tpl-list" id="itk-tpl-list"></div>
             </div>
             <div class="itk-field">
-              <label class="itk-label">Zum Weiterbearbeiten</label>
+              <label class="itk-label" data-t="vorlagen.weiterbearbeitenLabel">Zum Weiterbearbeiten</label>
               <div class="itk-btn-row">
-                <button class="ctrl-btn primary" id="itk-download-psd" title="Photoshop-Datei mit getrennten Ebenen: Foto, jede Kachel, Swoosh und Icon">
+                <button class="ctrl-btn primary" id="itk-download-psd" title="Photoshop-Datei mit getrennten Ebenen: Foto, jede Kachel, Swoosh und Icon" data-t-title="vorlagen.psdBtnTitel">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>
-                  PSD mit Ebenen
+                  <span data-t="vorlagen.psdBtn">PSD mit Ebenen</span>
                 </button>
-                <button class="ctrl-btn" id="itk-download-svg" title="Vektordatei für Illustrator und InDesign">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/><circle cx="12" cy="21" r="1"/></svg>
-                  SVG Vektor
+                <button class="ctrl-btn" id="itk-download-svg" title="Vektordatei für Illustrator und InDesign" data-t-title="vorlagen.svgBtnTitel">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5V19"/><path d="m5 12 7 7 7-7"/><circle cx="12" cy="3" r="1"/></svg>
+                  <span data-t="vorlagen.svgBtn">SVG Vektor</span>
                 </button>
               </div>
             </div>
@@ -215,34 +215,33 @@
 
     <!-- ============================ AUSGABE (rechts) ======================= -->
     <div class="itk-previews">
-      <div class="itk-preview-eyebrow">Vorschau</div>
-      <div class="itk-preview-sub">Alle Intranet-Ausspielformate, live aus dem Motiv zugeschnitten.</div>
+      <label class="itk-widget-headline" for="itk-widget-select" data-t="vorschau.widgetLabel">Widget-Vorschau</label>
+      <div class="itk-preview-sub" data-t="vorschau.widgetUntertitel">Sieh direkt, wie dein Motiv in allen Formaten und Grids in My‑T dargestellt wird.</div>
 
       <div class="itk-widget-bar">
         <div class="itk-widget-field">
-          <label class="itk-label" for="itk-widget-select">Widget-Vorschau</label>
           <select class="itk-select" id="itk-widget-select">
-            <option value="none">Alle Formate</option>
-            <option value="smart-feed">Smart Feed</option>
-            <option value="story-banner">Story Banner</option>
-            <option value="top-news">Top News Widget</option>
-            <option value="news-rollup">News Rollup</option>
-            <option value="story-news-carousel">Story &amp; News Karussell</option>
-            <option value="story-cards">Personalised Story Cards</option>
+            <option value="none" data-t="vorschau.widgetAuswahl">Widget-Auswahl</option>
+            <option value="smart-feed" data-t="widgets.smart-feed">Smart Feed</option>
+            <option value="story-banner" data-t="widgets.story-banner">Story Banner</option>
+            <option value="top-news" data-t="widgets.top-news">Top News Widget</option>
+            <option value="news-rollup" data-t="widgets.news-rollup">News Rollup</option>
+            <option value="story-news-carousel" data-t="widgets.story-news-carousel">Story &amp; News Karussell</option>
+            <option value="story-cards" data-t="widgets.story-cards">Personalised Story Cards</option>
           </select>
         </div>
-        <label class="itk-check disabled" id="itk-danger-wrap">
-          <input type="checkbox" id="itk-danger-toggle" disabled>
-          Schutzzonen einblenden
+        <label class="itk-check disabled" id="itk-overlay-wrap">
+          <input type="checkbox" id="itk-overlay-toggle" checked disabled>
+          <span data-t="vorschau.schutzzonenLabel">Schutzzonen einblenden</span>
         </label>
       </div>
 
       <div id="itk-preview-default">
         <div class="itk-preview-main-panel">
-          <div class="itk-preview-group-label">Produktiv genutzte Formate</div>
+          <div class="itk-preview-group-label" data-t="vorschau.produktivLabel">Produktiv genutzte Formate</div>
           <div class="itk-preview-grid" id="itk-preview-grid-main"></div>
         </div>
-        <div class="itk-preview-group-label">Weitere Formate</div>
+        <div class="itk-preview-group-label" data-t="vorschau.weitereLabel">Weitere Formate</div>
         <div class="itk-preview-grid" id="itk-preview-grid-more"></div>
       </div>
       <div id="itk-preview-widget" style="display:none"></div>
@@ -253,12 +252,12 @@
   <div class="itk-export-bar" id="itk-export-bar">
     <button class="ctrl-btn primary itk-export-main" id="itk-download" disabled>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      <span>JPG exportieren</span>
-      <em id="itk-export-count">1180 × 623 px</em>
+      <span data-t="export.jpgBtn">JPG exportieren</span>
+      <em id="itk-export-count" data-t="export.standardGroesse">1180 × 623 px</em>
     </button>
-    <button class="ctrl-btn" id="itk-download-all" title="Alle Motive dieser Session exportieren" disabled>
+    <button class="ctrl-btn" id="itk-download-all" title="Alle Motive dieser Session exportieren" disabled data-t-title="export.alleBtnTitel">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-      Alle
+      <span data-t="export.alleBtn">Alle</span>
     </button>
   </div>
 </div>
@@ -275,17 +274,17 @@
 <div class="itk-tut-mask" id="itk-tut-mask">
   <div class="itk-tut-hole" id="itk-tut-hole"></div>
   <div class="itk-tut-card" id="itk-tut-card">
-    <button class="itk-tut-close" id="itk-tut-close" title="Tutorial beenden" aria-label="Tutorial beenden">
+    <button class="itk-tut-close" id="itk-tut-close" title="Tutorial beenden" aria-label="Tutorial beenden" data-t-title="tutorial.schliessenTitel">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
     </button>
     <div class="itk-tut-step" id="itk-tut-step">Schritt 1 / 12</div>
     <h3 id="itk-tut-title"></h3>
     <div id="itk-tut-text"></div>
     <div class="itk-tut-nav">
-      <button class="itk-tut-skip" id="itk-tut-skip">Überspringen</button>
+      <button class="itk-tut-skip" id="itk-tut-skip" data-t="tutorial.ueberspringen">Überspringen</button>
       <div class="itk-spacer"></div>
       <div class="itk-tut-dots" id="itk-tut-dots"></div>
-      <button class="ctrl-btn" id="itk-tut-prev">Zurück</button>
+      <button class="ctrl-btn" id="itk-tut-prev" data-t="tutorial.zurueck">Zurück</button>
       <button class="ctrl-btn primary" id="itk-tut-next">Weiter</button>
     </div>
   </div>
@@ -297,6 +296,9 @@
 <input type="file" id="itk-icon-file-input" accept=".svg,image/svg+xml" style="display:none">
 <input type="file" id="itk-tile-file-input" accept="image/*" style="display:none">
 
+<!-- texte.js zuerst: alle sichtbaren Wörter an einer Stelle, siehe die Datei
+     selbst, wenn nur Formulierungen geändert werden sollen. -->
+<script src="texte.js"></script>
 <!-- ag-psd schreibt die Photoshop-Datei; lokal abgelegt, damit der
      Generator auch ohne Internet funktioniert. Siehe vendor/README.txt -->
 <script src="testmotive.js"></script>
