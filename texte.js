@@ -82,8 +82,7 @@ const ITK_TEXT = {
 
   // =================== Reiter 2 · Icon & Designoption ====================
   icon: {
-    reiterTitel: 'Icon & Designoption',
-    frage: 'Icon verwenden?',
+    reiterTitel: 'Icon, Text & Designoption',
     keinIcon: 'Kein Icon',
     eigenesHochladen: 'Eigenes SVG hochladen …',
     // Wird vor den Dateinamen gesetzt, sobald ein eigenes Icon hochgeladen ist.
@@ -93,18 +92,39 @@ const ITK_TEXT = {
     designpositionLabel: 'Designoption · Kachelbereich',
     unterzeileOhneIcon: 'ohne Icon',
     unterzeilePraefix: 'Icon: {{name}}',
-    // Namen der fünf mitgelieferten Icons (erscheinen im Auswahlmenü).
+    // Namen der mitgelieferten Icons (erscheinen im Auswahlmenü).
+    // „Logo“ ist ein Sonderfall: immer weiß auf Magenta, Farbe nicht änderbar.
     symbole: {
       party: 'Party',
       aufruf: 'Aufruf',
       event: 'Event',
       team: 'Team',
-      emotionen: 'Emotionen'
+      emotionen: 'Emotionen',
+      logo: 'Logo'
     },
     hochgeladenToast: 'Icon „{{name}}“ hinzugefügt',
     zuGrossToast: 'SVG zu groß (max. 300 KB)',
     falscherTypToast: 'Bitte eine SVG-Datei wählen',
     unlesbarToast: 'SVG konnte nicht gelesen werden'
+  },
+
+  // ================= Text im Motiv (Reiter 2, neben dem Icon) ===============
+  // Zwei Sorten: „Schlagwort“ steht kursiv in Großbuchstaben und mittig,
+  // „Zweizeiler“ ist eine normale Headline über eine oder zwei Zeilen.
+  text: {
+    keinText: 'Kein Text',
+    schlagwort: 'Schlagwort',
+    zweizeiler: 'Zweizeiler',
+    eingabeLabel: 'Text im Motiv',
+    eingabePlatzhalter: 'Text eingeben …',
+    // Steht im Motiv, sobald eine Textart gewählt wird – einfach überschreiben.
+    vorgabeSchlagwort: 'Schlagwort',
+    vorgabeZweizeiler: 'Hier steht eine kurze Headline über zwei Zeilen',
+    hinweisBearbeiten: 'Ein <b>Doppelklick</b> auf den Text im Motiv ändert ihn direkt dort.',
+    // Steht nur bei der Textart „Schlagwort“ unter dem Eingabefeld.
+    hinweisSchlagwort: 'Ein Schlagwort steht in <b>höchstens zwei Wörtern</b>.',
+    // Erscheint nur, wenn die Hausschrift auf dem Rechner fehlt.
+    fehltSchriftToast: 'TeleNeo nicht gefunden – Text erscheint in einer Ersatzschrift'
   },
 
   // ============================ Reiter 3 · Kacheln ==========================
@@ -208,6 +228,10 @@ const ITK_TEXT = {
     kachelfarbeHinweis: 'Kacheln nutzen ausschließlich die drei Primärfarben.',
     kachelBildErsetzenHinweis: 'Eine Farbe zu wählen ersetzt das Bild wieder.',
     kachelOderBildHinweis: 'Kacheln nutzen die drei Primärfarben – oder ein eigenes Bild.',
+    // Erscheint, wenn schon so viele Kacheln ein eigenes Bild zeigen wie bei
+    // dieser Kachelanzahl erlaubt sind.
+    kachelBildLimitHinweisEinzahl: 'Bei dieser Aufteilung darf nur eine Kachel ein eigenes Bild zeigen. Für diese Kachel bleibt eine Farbe.',
+    kachelBildLimitHinweisMehrzahl: 'Bei dieser Aufteilung dürfen höchstens {{n}} Kacheln ein eigenes Bild zeigen. Für diese Kachel bleibt eine Farbe.',
     iconFlaecheLabel: 'Icon-Fläche',
     iconFlaecheHinweis: 'Die Glyphe übernimmt automatisch die passende Sekundärfarbe.',
     maskenflaecheLabel: 'Farbfläche',
@@ -284,7 +308,7 @@ const ITK_TEXT = {
     schritt4Text: '<p>Du kannst mehrere Motive auf einmal anlegen. Jede nummerierte Seite steht für ein eigenes Motiv. Mit <b>+</b> fügst du weitere Motive hinzu, mit <b>×</b> entfernst du sie wieder.</p>',
 
     schritt5Titel: '1 · Bild',
-    schritt5Text: '<p>Lade ein Bild hoch oder ziehe es direkt in das Vorschaufenster. Über „Testmotiv“ fügst du ein Platzhalterbild zum Ausprobieren ein.</p><p><b>Alternativ kannst du auch ein Motiv ohne Bild erstellen.</b> Klicke dafür auf „ohne Bild“. Die Fläche wird dann vollständig mit Kacheln gefüllt.</p>',
+    schritt5Text: '<p>Lade ein Bild hoch oder ziehe es direkt in das Vorschaufenster. Über „Testmotiv“ fügst du ein Platzhalterbild zum Ausprobieren ein.</p><p><b>Alternativ kannst du auch ein Motiv ohne Bild erstellen.</b> Klicke dafür auf „nur Kacheln“. Die Fläche wird dann vollständig mit Kacheln gefüllt.</p>',
 
     schritt6Titel: 'Zoom & Ausschnitt',
     // {{icon:fuellen}} und {{icon:zentrieren}} setzen die echten kleinen
@@ -292,7 +316,7 @@ const ITK_TEXT = {
     schritt6Text: '<p>Passe den Bildausschnitt mit dem Zoom-Regler an. Über die Buttons „Vollbild“ {{icon:fuellen}} und „Zentrieren“ {{icon:zentrieren}} kannst du das Bild automatisch ausrichten.</p><p>Alternativ kannst du das Bild direkt im Motiv verschieben oder mit dem Mausrad zoomen.</p>',
 
     schritt7Titel: '2 · Icon auswählen',
-    schritt7Text: '<p>Du kannst auf deinem Motiv ein Icon ergänzen. Das Icon wird <b>immer mittig</b> platziert.</p><p>Du kannst auch eigene SVGs hochladen. Die Farbe und Größe deines Icons wird dabei automatisch angepasst.</p>',
+    schritt7Text: '<p>Du kannst auf deinem Motiv ein Icon ergänzen. Das Icon wird <b>immer mittig</b> platziert. Du kannst auch eigene SVGs hochladen – Farbe und Größe passen sich automatisch an.</p><p>Alternativ lässt sich ein Text einblenden: „Schlagwort“ oder „Zweizeiler“. Icon und Text schließen sich aus – wählst du eines, wird das andere ausgegraut.</p>',
 
     schritt8Titel: 'Design auswählen',
     schritt8Text: '<p>Je nach Einstellungen (mit/ohne Icon, mit/ohne Bild) hast du verschiedene Layoutoptionen zur Verfügung.</p><p>Wählst du die Option „Keine Kacheln“, wird im Motiv nur dein Bild mit Icon oder Swoosh angezeigt.</p>',
@@ -335,7 +359,12 @@ const ITK_TEXT = {
     gruppeIcon: 'Icon',
     iconKontur: 'Icon-Kontur (weiß)',
     iconFlaechePraefix: 'Icon-Fläche {{farbe}}',
-    iconGlyphe: 'Icon-Glyphe'
+    iconGlyphe: 'Icon-Glyphe',
+    gruppeLogo: 'Logo',
+    logoKontur: 'Logo-Kontur (weiß)',
+    logoFlaeche: 'Logo-Fläche Magenta',
+    logoGrafik: 'Logo (weiß)',
+    text: 'Text'
   },
 
   // ========== Platzhalter-Inhalte in den Format-Vorschauen (rechts) ===========

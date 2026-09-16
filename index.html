@@ -34,6 +34,10 @@
             <p data-t="motiv.dropZeile1">Bild hierher ziehen oder auswählen</p>
             <p class="sub" data-t="motiv.dropZeile2">Ideal: 1180 × 623 px</p>
           </div>
+          <!-- Liegt beim Bearbeiten deckungsgleich über dem Text im Motiv:
+               unsichtbare Schrift, sichtbarer Cursor – man tippt scheinbar
+               direkt im Bild, das darunter live neu zeichnet. -->
+          <textarea id="itk-motiv-text" class="itk-motiv-text" spellcheck="false" style="display:none"></textarea>
           <!-- Bedienhinweis: nur beim Überfahren des Motivs, danach wieder weg -->
           <div class="itk-stage-hint">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.5 3 3l8.5 6-2.5 2.5Z"/><path d="m13 13 8 8"/><path d="M14 8h7"/><path d="M17 5v6"/></svg>
@@ -109,22 +113,43 @@
           </button>
           <div class="itk-step-body">
             <div class="itk-field" id="itk-icon-field">
-              <label class="itk-label" for="itk-icon-select" data-t="icon.frage">Icon verwenden?</label>
-              <select class="itk-select" id="itk-icon-select">
-                <option value="none" data-t="icon.keinIcon">Kein Icon</option>
-                <option value="party" data-t="icon.symbole.party">Party</option>
-                <option value="aufruf" data-t="icon.symbole.aufruf">Aufruf</option>
-                <option value="event" data-t="icon.symbole.event">Event</option>
-                <option value="team" data-t="icon.symbole.team">Team</option>
-                <option value="emotionen" data-t="icon.symbole.emotionen">Emotionen</option>
-                <option value="__upload__" data-t="icon.eigenesHochladen">Eigenes SVG hochladen …</option>
-              </select>
+              <!-- Icon und Text schließen sich aus: was nicht gewählt ist,
+                   wird gesperrt. Deshalb stehen beide Menüs nebeneinander. -->
+              <div class="itk-duo">
+                <select class="itk-select" id="itk-icon-select">
+                  <option value="none" data-t="icon.keinIcon">Kein Icon</option>
+                  <option value="party" data-t="icon.symbole.party">Party</option>
+                  <option value="aufruf" data-t="icon.symbole.aufruf">Aufruf</option>
+                  <option value="event" data-t="icon.symbole.event">Event</option>
+                  <option value="team" data-t="icon.symbole.team">Team</option>
+                  <option value="emotionen" data-t="icon.symbole.emotionen">Emotionen</option>
+                  <option value="logo" data-t="icon.symbole.logo">Logo</option>
+                  <option value="__upload__" data-t="icon.eigenesHochladen">Eigenes SVG hochladen …</option>
+                </select>
+                <select class="itk-select" id="itk-text-select">
+                  <option value="none" data-t="text.keinText">Kein Text</option>
+                  <option value="schlagwort" data-t="text.schlagwort">Schlagwort</option>
+                  <option value="headline" data-t="text.zweizeiler">Zweizeiler</option>
+                </select>
+              </div>
               <div class="itk-note" id="itk-icon-note" style="display:none" data-t-html="icon.hinweisMittig">
                 Icons sitzen <b>immer mittig</b> im Layout. Deshalb stehen mit Icon nur die drei mittig geteilten Kachelbereiche zur Verfügung.
               </div>
             </div>
 
-            <div class="itk-field">
+            <div class="itk-field" id="itk-text-field" style="display:none">
+              <label class="itk-label" for="itk-text-input" data-t="text.eingabeLabel">Text im Motiv</label>
+              <input type="text" class="itk-input" id="itk-text-input" maxlength="90"
+                     placeholder="Text eingeben …" data-t-placeholder="text.eingabePlatzhalter">
+              <div class="itk-note" id="itk-text-note-schlagwort" style="display:none" data-t-html="text.hinweisSchlagwort">
+                Ein Schlagwort steht in <b>höchstens zwei Wörtern</b>.
+              </div>
+              <div class="itk-note" data-t-html="text.hinweisBearbeiten">
+                Ein <b>Doppelklick</b> auf den Text im Motiv ändert ihn direkt dort.
+              </div>
+            </div>
+
+            <div class="itk-field" id="itk-area-field">
               <label class="itk-label" data-t="icon.designpositionLabel">Designposition · Kachelbereich</label>
               <div class="itk-choice-grid" id="itk-area-grid"></div>
             </div>

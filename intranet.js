@@ -99,6 +99,12 @@ const KBR_ON = {
 const KBR_SWOOSH_ON_PHOTO = [KBR.lightgreen, KBR.lightblue];
 
 function kbrAllowedOn(primary) { return KBR_ON[primary] || KBR_SWOOSH_ON_PHOTO; }
+
+/* Schrift folgt denselben Regeln – mit einer Ausnahme: Auf Magenta steht sie
+   immer weiß, obwohl dort auch Hellgrün erlaubt wäre. */
+function kbrTextOn(primary) {
+  return primary === KBR.magenta ? [KBR.white] : kbrAllowedOn(primary);
+}
 function kbrFix(color, allowed) { return allowed.includes(color) ? color : allowed[0]; }
 
 // ---------------------------------------------------------------------
@@ -219,12 +225,50 @@ const ITK_AREAS = [
     split: { type: 'full' } }
 ];
 function itkArea(id) { return ITK_AREAS.find(a => a.id === id); }
-function itkAreasFor(hasIcon) {
+function itkAreasFor(d) {
+  // Mit Text stehen nur die beiden unteren Bereiche zur Wahl – und sobald der
+  // Text zweizeilig wird, bleibt nur der hohe übrig.
+  if (itkMtOn(d)) {
+    const ids = itkMtLines(d) > 1 ? ['bottom-l'] : ['bottom-s', 'bottom-l'];
+    return ITK_AREAS.filter(a => ids.includes(a.id));
+  }
+  const hasIcon = d.iconKey !== 'none';
   return ITK_AREAS.filter(a => !a.versteckt && (a.icon === 'both' || a.icon === hasIcon));
+}
+
+/* Zweizeilig verlangt den hohen Kachelbereich. Gibt true zurück, wenn dafür
+   umgestellt werden musste. */
+function itkMtEnforceArea(m) {
+  const d = m.design;
+  if (!itkMtOn(d)) return false;
+  // Der Kachelbereich ist mit Text kein Auswahl-, sondern ein Ergebnisfeld:
+  // eine Zeile läuft schmal, zwei Zeilen laufen breit – automatisch, in
+  // beide Richtungen, sobald sich die Zeilenzahl beim Tippen ändert.
+  const ziel = itkMtLines(d) > 1 ? 'bottom-l' : 'bottom-s';
+  if (d.areaId !== ziel) { itkApplyArea(m, ziel); return true; }
+  return false;
 }
 /* Kachelmodus ohne Foto – dort und nur dort dürfen Bilder in einzelne
    Kacheln gelegt werden. */
 function itkIsFullTiles(d) { return d.areaId === 'full'; }
+
+/* Wie viele der Kacheln dürfen gleichzeitig ein eigenes Bild zeigen? Bei
+   wenigen Kacheln bliebe von der Fläche sonst kaum noch etwas Eigenes übrig. */
+function itkMaxTileImages(n) { return n <= 3 ? 1 : 2; }
+
+/* Nach jeder Neuaufteilung zählen: Passt die Kachelanzahl nicht mehr zur
+   Anzahl eingesetzter Bilder (z. B. nach dem Verkleinern des Reglers),
+   verlieren die überzähligen ihr Bild – die ersten behalten Vorrang. */
+function itkEnforceTileImageLimit(d) {
+  if (!itkIsFullTiles(d)) return;
+  const max = itkMaxTileImages(d.tiles.length);
+  let used = 0;
+  d.tiles.forEach(t => {
+    if (!t.src) return;
+    used++;
+    if (used > max) t.src = null;
+  });
+}
 
 /* Zurück aus dem Kachelmodus in ein Fotolayout. Der Bereich, der vor dem
    Umschalten galt, kommt wieder – sonst der Standard. Ohne diesen Rückweg
@@ -280,12 +324,18 @@ function itkRegions(split, W, H, gap) {
 // ---------------------------------------------------------------------
 // 5. ICONS – 5 mitgelieferte + eigener Upload
 // ---------------------------------------------------------------------
+/* KBR-Logo als Icon-Variante: liegt wie ein Icon auf einer Trägerfläche,
+   ist aber breit statt quadratisch und immer weiß auf Magenta.
+   Quelle: RGB_Primäres_Logo_Weiß.svg, Formen auf #000000 normiert. */
+const ITK_LOGO_SVG = '<svg viewBox="0 0 989.23 209.02" xmlns="http://www.w3.org/2000/svg"><path fill="#000000" d="M41.05,137.09H0v-41.05h40.98v41.05h.07ZM0,1.64v69.79h12.31v-2.03c0-32.86,18.46-53.35,53.36-53.35h2.02v147.74c0,20.48-8.18,28.74-28.74,28.74h-6.15v14.33h106.71v-14.33h-6.15c-20.49,0-28.74-8.18-28.74-28.74V15.98h2.03c34.89,0,53.35,20.48,53.35,53.35v2.03h12.31V1.64H0ZM131.32,137.09h41.05v-41.05h-40.98l-.07,41.05Z"/><path fill="#000000" d="M947.87,133.46v73.39h18.25v-73.39h23.11v-16.9h-64.46v16.9h23.11ZM893.13,142.92h.81l9.73,29.47h-20.14l9.6-29.47ZM933.51,206.85l-30.78-90.28h-18.24l-30.83,90.29h18.52l5.82-17.56h31.23l5.81,17.56h18.48ZM813.22,133.46c6.04-.53,11.36,3.93,11.89,9.97.05.59.05,1.19,0,1.79,0,7.57-4.86,11.63-11.9,11.63h-14.32v-23.38h14.32ZM825.93,171.98c10.94-3.65,18.12-12.98,18.12-26.76,0-18.25-12.44-28.66-30.02-28.66h-33.38v90.3h18.25v-32.99h8.79l17.03,32.98h20.28l-19.06-34.87h0ZM738.91,209.02c16.9,0,30.28-10.28,30.28-28.39,0-13.1-8.24-23.11-21.76-26.62l-10.41-2.84c-5.01-1.35-9.19-3.64-9.19-9.72s4.72-9.87,10.94-9.87c7.03,0,10.94,3.38,12.04,10.13h17.83c-1.76-16.62-11.63-27.31-29.87-27.31-16.76,0-29.61,11.09-29.61,28.25,0,11.09,5.82,21.49,20.14,25.41l10.41,2.98c7.03,1.89,10.82,4.73,10.82,10.68s-3.92,10.13-11.63,10.13c-6.76,0-11.76-2.98-13.26-10.54h-18.24c1.62,17.84,12.84,27.71,31.49,27.71M656.46,190.77v-21.63h13.25c7.16,0,11.08,4.06,11.08,10.68.48,5.57-3.64,10.48-9.21,10.96-.62.05-1.25.05-1.87,0h-13.25ZM670.12,132.64c5.25-.22,9.69,3.87,9.9,9.12.02.43,0,.86-.03,1.29,0,6.35-3.79,10.53-9.87,10.53h-13.66v-20.95h13.66ZM687.83,161.16c7.2-4.35,11.44-12.28,11.08-20.68,0-12.98-7.84-23.92-26.36-23.92h-34.34v90.29h33.65c19.61,0,27.84-11.22,27.84-25,0-9.46-4.32-16.63-11.89-20.14v-.55h.02ZM571.59,116.56v90.29h53.13v-16.89h-34.89v-20.55h33.51v-16.9h-33.51v-19.06h34.87v-16.9h-53.1ZM558.61,116.56h-18.25v90.29h18.25v-90.29ZM494.68,133.45c6.04-.53,11.35,3.93,11.89,9.97.05.6.05,1.2,0,1.79,0,7.57-4.87,11.63-11.9,11.63h-14.33v-23.38h14.33ZM507.38,171.97c10.94-3.64,18.11-12.98,18.11-26.76,0-18.25-12.44-28.65-30.01-28.65h-33.39v90.28h18.25v-32.97h8.79l17.03,32.97h20.28l-19.06-34.87h0ZM411.55,133.45v73.39h18.25v-73.39h23.11v-16.9h-64.47v16.9h23.11ZM325.58,116.56v90.29h53.12v-16.89h-34.87v-20.55h33.51v-16.9h-33.51v-19.06h34.87v-16.9h-53.12ZM272.73,190.77v-21.63h13.25c7.16,0,11.09,4.06,11.09,10.68.48,5.57-3.65,10.48-9.22,10.96-.62.05-1.25.05-1.87,0h-13.25ZM286.39,132.64c5.25-.22,9.69,3.86,9.9,9.11.02.44,0,.86-.03,1.3,0,6.35-3.79,10.53-9.87,10.53h-13.66v-20.95h13.66ZM304.1,161.16c7.2-4.35,11.45-12.28,11.08-20.68,0-12.98-7.84-23.92-26.36-23.92h-34.33v90.29h33.65c19.6,0,27.84-11.22,27.84-25,0-9.46-4.32-16.63-11.9-20.14v-.55h.02Z"/><path fill="#000000" d="M759.42,75.06h-.82L714.43,1.64h-9.57v91.34h9.3V19.69h.81l44.17,73.29h9.57V1.64h-9.29v73.42ZM657.15,10.39c9.85,0,19.01,5.2,19.01,18.18s-9.16,18.19-19.01,18.19h-20.23V10.39h20.23ZM662.89,55.23c12.85-1.78,22.97-10.39,22.97-26.67,0-18.32-12.98-26.94-28.17-26.94h-30.08v91.34h9.3v-37.33h15.72l23.24,37.33h10.81l-23.79-37.73ZM560.48,1.64v91.34h49.77v-8.74h-40.48v-33.64h39.11v-8.74h-39.11V10.39h40.48V1.64h-49.77ZM498.27,83.41l43.9-70.69V1.64h-51.67v8.74h41.7v.82l-43.9,70.7v11.08h54.29v-8.74h-44.3v-.82h-.02ZM461.48,75.07h-.81L416.52,1.64h-9.57v91.34h9.29V19.69h.82l44.16,73.29h9.57V1.64h-9.3v73.42h-.02ZM355.93,85.46c-17.22,0-26.8-13.67-26.8-38.15s9.57-38.15,26.8-38.15,26.8,13.67,26.8,38.15-9.58,38.15-26.8,38.15M355.94,94.61c23.39,0,36.64-18.04,36.64-47.3S379.33,0,355.94,0s-36.65,18.04-36.65,47.3,13.26,47.31,36.64,47.31M303.03,92.97h11.23l-35.15-51.68L313.54,1.64h-12.3l-36.64,42.93h-.82V1.64h-9.29v91.34h9.29v-33.63l8.89-10.25h.82l29.53,43.9v-.03Z"/></svg>';
+
 const ITK_ICONS = [
   { key: 'party', label: ITK_TEXT.icon.symbole.party, svg: '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path d="m16.057 25.106c-1.097.404-2.49.916-4.252 1.569-3.009-.42-6.171-1.399-7.538-3.646.498-1.341.932-2.516 1.316-3.553 2.576 2.976 7.077 4.866 10.474 5.63z"/><path d="m16.931 15.069c-2.928-2.927-6.698-5.089-8.235-3.549-.328.328-.229.132-2.508 6.317 2.43 3.507 8.57 5.956 12.847 6.171 1.279-.481 1.249-.505 1.446-.703 1.885-1.885-1.666-6.353-3.55-8.236zm2.488 7.174c-.143.145-.808.152-1.989-.431-1.284-.635-2.749-1.742-4.125-3.118-3.188-3.188-3.933-5.73-3.549-6.114.06-.06.172-.092.331-.092.861 0 3.092.951 5.784 3.642 1.376 1.376 2.484 2.841 3.119 4.125.583 1.179.573 1.845.429 1.988z"/><path d="m9.059 27.694c-1.732.644-3.729 1.39-6.048 2.259-.603.222-1.187-.364-.964-.964.584-1.564 1.111-2.978 1.591-4.268 1.318 1.514 3.3 2.432 5.421 2.973z"/><path d="m19.669 3.895c-.467.082-.918.156-1.224.31.46.706 1.421 1.605.834 2.779-.525 1.05-1.616.988-2.563 1.021.581.794 1.253 1.599.735 2.636-.537 1.075-1.945 1.298-2.776 1.433-.269.044-.519-.136-.569-.403l-.182-.982c-.051-.273.133-.536.406-.584.473-.083.916-.155 1.224-.31-.462-.701-1.419-1.609-.835-2.778.524-1.047 1.614-.988 2.563-1.021-.582-.794-1.253-1.599-.735-2.636.537-1.074 1.946-1.298 2.775-1.433.269-.044.519.136.568.403l.182.982c.053.273-.129.535-.403.583z"/><path d="m28.689 11.925.982.182c.268.05.447.3.403.568-.135.829-.359 2.238-1.433 2.775-1.037.518-1.842-.153-2.636-.735-.033.949.026 2.04-1.021 2.563-1.169.584-2.077-.373-2.778-.835-.155.308-.227.751-.31 1.224-.048.274-.311.457-.584.406l-.982-.182c-.268-.05-.447-.3-.403-.569.135-.83.359-2.238 1.433-2.776 1.036-.518 1.842.154 2.636.735.033-.947-.029-2.039 1.021-2.563 1.174-.587 2.073.374 2.779.834.154-.306.228-.757.31-1.224.047-.271.309-.453.583-.403z"/><path d="m25.7 21h-1.9c-.166 0-.3-.134-.3-.3v-.9c0-.166.134-.3.3-.3h1.9c.166 0 .3.134.3.3v.9c0 .166-.134.3-.3.3z"/><path d="m27.788 3.273-1.344 1.344c-.117.117-.307.117-.424 0l-.636-.637c-.117-.117-.117-.307 0-.424l1.344-1.344c.117-.117.307-.117.424 0l.636.636c.117.117.117.307 0 .425z"/><path d="m12.2 6.5h-.9c-.166 0-.3-.134-.3-.3v-1.9c0-.166.134-.3.3-.3h.9c.166 0 .3.134.3.3v1.9c0 .166-.134.3-.3.3z"/><path d="m19.383 13.255-.75-.5c-.141-.094-.182-.284-.085-.423 2.041-2.904 5.976-5.931 10.139-6.077.171-.005.313.137.313.307v.901c0 .16-.126.285-.286.292-3.483.138-7.051 2.761-8.928 5.424-.093.133-.269.166-.403.076z"/></svg>' },
   { key: 'aufruf', label: ITK_TEXT.icon.symbole.aufruf, svg: '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="m15.87882 15.08708h-8.87659c-1.65125 0-3.00223 1.35104-3.00223 3.00223v14.74094c0 1.65125 1.35098 3.00223 3.00223 3.00223h8.87659z"/><path d="m49.95414 6.91102c-1.11248-.54566-2.41062-.32765-3.32247.48035-6.08708 4.97236-13.89881 7.71874-21.74616 7.69568 0 .00002-7.0052.00002-7.0052.00002v20.7454h7.00521c7.88972-.03305 15.61756 2.73346 21.79623 7.73577 1.8495 1.66611 5.06814.24231 4.98363-2.27181.00005.00012.00005-31.67339.00005-31.67339 0-1.17091-.65051-2.21167-1.71129-2.71204z"/><path d="m53.66692 17.59895v15.71169c8.44644-1.914 8.44177-13.80043 0-15.71169z"/><path d="m22.22357 37.83397h-11.68868l7.74575 17.14275c.66046 1.46111 2.12157 2.41183 3.73275 2.41183 2.60236.06921 4.68895-2.62641 3.9629-5.13387.00007.00005-3.75272-14.42071-3.75272-14.42071z"/></svg>' },
   { key: 'event', label: ITK_TEXT.icon.symbole.event, svg: '<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect height="6" rx="2" width="4" x="11" y="3"/><rect height="6" rx="2" width="4" x="33" y="3"/><path d="m4 18v23c0 2.209 1.791 4 4 4h32c2.209 0 4-1.791 4-4v-23zm12 20c0 1.105-.895 2-2 2h-2c-1.105 0-2-.895-2-2v-2c0-1.105.895-2 2-2h2c1.105 0 2 .895 2 2zm0-11c0 1.105-.895 2-2 2h-2c-1.105 0-2-.895-2-2v-2c0-1.105.895-2 2-2h2c1.105 0 2 .895 2 2zm11 11c0 1.105-.895 2-2 2h-2c-1.105 0-2-.895-2-2v-2c0-1.105.895-2 2-2h2c1.105 0 2 .895 2 2zm0-11c0 1.105-.895 2-2 2h-2c-1.105 0-2-.895-2-2v-2c0-1.105.895-2 2-2h2c1.105 0 2 .895 2 2zm11 11c0 1.105-.895 2-2 2h-2c-1.105 0-2-.895-2-2v-2c0-1.105.895-2 2-2h2c1.105 0 2 .895 2 2zm0-11c0 1.105-.895 2-2 2h-2c-1.105 0-2-.895-2-2v-2c0-1.105.895-2 2-2h2c1.105 0 2 .895 2 2z"/><path d="m44 16v-6c0-2.209-1.791-4-4-4h-1v1c0 2.206-1.794 4-4 4s-4-1.794-4-4v-1h-14v1c0 2.206-1.794 4-4 4s-4-1.794-4-4v-1h-1c-2.209 0-4 1.791-4 4v6z"/></svg>' },
   { key: 'team', label: ITK_TEXT.icon.symbole.team, svg: '<svg viewBox="0 0 511.999 511.999" xmlns="http://www.w3.org/2000/svg"><path d="M438.09,273.32h-39.596c4.036,11.05,6.241,22.975,6.241,35.404v149.65c0,5.182-0.902,10.156-2.543,14.782h65.461c24.453,0,44.346-19.894,44.346-44.346v-81.581C512,306.476,478.844,273.32,438.09,273.32z"/><path d="M107.265,308.725c0-12.43,2.205-24.354,6.241-35.404H73.91c-40.754,0-73.91,33.156-73.91,73.91v81.581c0,24.452,19.893,44.346,44.346,44.346h65.462c-1.641-4.628-2.543-9.601-2.543-14.783V308.725z"/><path d="M301.261,234.815h-90.522c-40.754,0-73.91,33.156-73.91,73.91v149.65c0,8.163,6.618,14.782,14.782,14.782h208.778c8.164,0,14.782-6.618,14.782-14.782v-149.65C375.171,267.971,342.015,234.815,301.261,234.815z"/><path d="M256,38.84c-49.012,0-88.886,39.874-88.886,88.887c0,33.245,18.349,62.28,45.447,77.524c12.853,7.23,27.671,11.362,43.439,11.362c15.768,0,30.586-4.132,43.439-11.362c27.099-15.244,45.447-44.28,45.447-77.524C344.886,78.715,305.012,38.84,256,38.84z"/><path d="M99.918,121.689c-36.655,0-66.475,29.82-66.475,66.475c0,36.655,29.82,66.475,66.475,66.475c9.298,0,18.152-1.926,26.195-5.388c13.906-5.987,25.372-16.585,32.467-29.86c4.98-9.317,7.813-19.946,7.813-31.227C166.393,151.51,136.573,121.689,99.918,121.689z"/><path d="M412.082,121.689c-36.655,0-66.475,29.82-66.475,66.475c0,11.282,2.833,21.911,7.813,31.227c7.095,13.276,18.561,23.874,32.467,29.86c8.043,3.462,16.897,5.388,26.195,5.388c36.655,0,66.475-29.82,66.475-66.475C478.557,151.509,448.737,121.689,412.082,121.689z"/></svg>' },
-  { key: 'emotionen', label: ITK_TEXT.icon.symbole.emotionen, svg: '<svg viewBox="0 0 512.001 512.001" xmlns="http://www.w3.org/2000/svg"><path d="m256.001 477.407c-2.59 0-5.179-.669-7.499-2.009-2.52-1.454-62.391-36.216-123.121-88.594-35.994-31.043-64.726-61.833-85.396-91.513-26.748-38.406-40.199-75.348-39.982-109.801.254-40.09 14.613-77.792 40.435-106.162 26.258-28.848 61.3-44.734 98.673-44.734 47.897 0 91.688 26.83 116.891 69.332 25.203-42.501 68.994-69.332 116.891-69.332 35.308 0 68.995 14.334 94.859 40.362 28.384 28.563 44.511 68.921 44.247 110.724-.218 34.393-13.921 71.279-40.728 109.632-20.734 29.665-49.426 60.441-85.279 91.475-60.508 52.373-119.949 87.134-122.45 88.588-2.331 1.354-4.937 2.032-7.541 2.032z"/></svg>' }
+  { key: 'emotionen', label: ITK_TEXT.icon.symbole.emotionen, svg: '<svg viewBox="0 0 512.001 512.001" xmlns="http://www.w3.org/2000/svg"><path d="m256.001 477.407c-2.59 0-5.179-.669-7.499-2.009-2.52-1.454-62.391-36.216-123.121-88.594-35.994-31.043-64.726-61.833-85.396-91.513-26.748-38.406-40.199-75.348-39.982-109.801.254-40.09 14.613-77.792 40.435-106.162 26.258-28.848 61.3-44.734 98.673-44.734 47.897 0 91.688 26.83 116.891 69.332 25.203-42.501 68.994-69.332 116.891-69.332 35.308 0 68.995 14.334 94.859 40.362 28.384 28.563 44.511 68.921 44.247 110.724-.218 34.393-13.921 71.279-40.728 109.632-20.734 29.665-49.426 60.441-85.279 91.475-60.508 52.373-119.949 87.134-122.45 88.588-2.331 1.354-4.937 2.032-7.541 2.032z"/></svg>' },
+  { key: 'logo', label: ITK_TEXT.icon.symbole.logo, svg: ITK_LOGO_SVG }
 ];
 const ITK_ICON_MAX_BYTES = 300 * 1024;
 
@@ -381,7 +431,10 @@ function itkNewDesign() {
     tiles: [],            // { x, y, w, h, color }
     swoosh: 'none',       // 'none' | 'photo' | 'tile' | 'mask'
     swooshColor: KBR.lightgreen,
-    maskBase: KBR.magenta
+    maskBase: KBR.magenta,
+    textMode: 'none',     // 'none' | 'schlagwort' | 'headline'
+    textValue: '',
+    textColor: KBR.lightblue
   };
 }
 function itkNewMotif(name) {
@@ -498,11 +551,12 @@ function itkRebuildTiles(m, keepColors) {
   // zu verlieren wäre für den Nutzer ein Datenverlust.
   const prevSrc = d.tiles.map(t => t.src);
   const { seeds } = itkRegions(area.split, ITK_W, ITK_H, ITK_GAP);
-  const n = Math.max(area.min, Math.min(5, d.tileCount));
-  d.tiles = itkSplitTiles(seeds, n, Math.random);
+  const n = Math.max(area.min, Math.min(itkMaxTiles(d), d.tileCount));
+  d.tiles = itkMtOn(d) ? itkMtTiles(seeds[0], n) : itkSplitTiles(seeds, n, Math.random);
   itkColorTiles(d.tiles, Math.random);
   if (prev) d.tiles.forEach((t, i) => { if (prev[i]) t.color = prev[i]; });
   d.tiles.forEach((t, i) => { if (prevSrc[i]) t.src = prevSrc[i]; });
+  itkEnforceTileImageLimit(d);
   itkEnforceSwooshColor(m);
 }
 
@@ -517,6 +571,10 @@ function itkEnforceSwooshColor(m) {
     d.swooshColor = kbrFix(d.swooshColor, KBR_SWOOSH_ON_PHOTO);
   }
   d.iconFg = kbrFix(d.iconFg, kbrAllowedOn(d.iconBg));
+  // Die Schrift folgt derselben Regel wie Icon und Swoosh: erlaubt ist nur,
+  // was auf der Farbe der tragenden Kachel stehen darf.
+  const tt = itkMtTile(d);
+  if (tt) d.textColor = kbrFix(d.textColor, kbrTextOn(tt.color));
 }
 
 // ---------------------------------------------------------------------
@@ -526,6 +584,182 @@ function itkEnforceSwooshColor(m) {
 // für das aktive Motiv, nicht für Thumbnails oder den Sammelexport.
 // ---------------------------------------------------------------------
 const ITK_ICON_SIZE = 202;      // Kantenlänge der quadratischen Icon-Kachel
+const ITK_LOGO_INNER = 0.44;    // Höhe des Logos im Verhältnis zur Trägerfläche
+
+/* Breite der Logo-Trägerfläche: so viel Luft links und rechts wie oben und
+   unten. Ergibt bei der gelieferten Logodatei dasselbe Verhältnis wie in der
+   Vorlage (Trägerfläche 479 × 200, Logo 350 × 74). */
+function itkLogoWidth() {
+  const src = itkIconSrc.logo;
+  const ih = ITK_ICON_SIZE * ITK_LOGO_INNER;
+  const iw = ih * (src ? src.vbW / src.vbH : 4.732);
+  return Math.round(iw + (ITK_ICON_SIZE - ih));
+}
+
+// ---------------------------------------------------------------------
+// 8a. TEXT IM MOTIV
+// Alle Maße stammen aus den Vorlagen des Kunden: Die Textbox liegt fest
+// bei x 266…914 (in den Regelungs-PDFs die magentafarbenen Marken), die
+// Textkachel selbst bei x 202…978. Die Schriftgröße wächst und schrumpft
+// nur innerhalb der freigegebenen Punktbereiche.
+// ---------------------------------------------------------------------
+const ITK_MT_BOX  = { x: 266, w: 648 };   // feste Breite, bis hierhin darf Text laufen
+const ITK_MT_COL  = { x: 202, w: 776 };   // feste Textkachel, wenn Kacheln daneben stehen
+const ITK_MT_CAP  = 0.668;                // Versalhöhe von TeleNeo ExtraBold
+const ITK_MT_LINE = 1.2;                  // Zeilenabstand der Vorlage
+const ITK_MT_FONT = '"TeleNeo Motiv", "TeleNeo", sans-serif';
+/* Punktgrößen wie in den Vorlagen: Ein Schlagwort wächst von 56 auf bis zu
+   80 pt, je kürzer desto größer. Eine Headline steht einzeilig bei 48 pt und
+   zweizeilig bei 56 pt; kleiner wird sie nur, wenn sie sonst aus der Box liefe. */
+const ITK_MT_MODES = {
+  schlagwort: { min: 56, max: 80, italic: true,  upper: true,  maxLines: 1, maxWorte: 2 },
+  headline:   { min: 48, max: 56, italic: false, upper: false, maxLines: 2, eineZeile: 48 }
+};
+const ITK_MT_MAX_TILES = 3;     // Textkachel plus je eine links und rechts
+
+function itkMtOn(d) { return !!d.textMode && d.textMode !== 'none'; }
+function itkMtCfg(d) { return ITK_MT_MODES[d.textMode] || null; }
+function itkMaxTiles(d) { return itkMtOn(d) ? ITK_MT_MAX_TILES : 5; }
+
+/* Eigener Messkontext: Das Layout wird mitten im Zeichnen gebraucht und darf
+   die Schrifteinstellung des Motivkontexts nicht umstellen. */
+let itkMtCtx = null;
+function itkMtMeasureCtx() {
+  if (!itkMtCtx) itkMtCtx = document.createElement('canvas').getContext('2d');
+  return itkMtCtx;
+}
+function itkMtFont(fs, cfg) {
+  return (cfg.italic ? 'italic ' : '') + '800 ' + itkNum(fs) + 'px ' + ITK_MT_FONT;
+}
+function itkMtWidth(s, fs, cfg) {
+  const c = itkMtMeasureCtx();
+  c.font = itkMtFont(fs, cfg);
+  return c.measureText(s).width;
+}
+
+/* Gierig umbrechen – erste Zeile so voll wie möglich. Genau so stehen die
+   beiden Zeilen in der Vorlage. Gibt null zurück, wenn alles in eine passt. */
+function itkMtWrap(words, fs, cfg, maxW) {
+  const erste = [];
+  let i = 0;
+  while (i < words.length) {
+    const probe = erste.concat(words[i]).join(' ');
+    if (erste.length && itkMtWidth(probe, fs, cfg) > maxW) break;
+    erste.push(words[i]); i++;
+  }
+  if (i >= words.length) return null;
+  return [erste.join(' '), words.slice(i).join(' ')];
+}
+
+/* Zeilen und Schriftgröße bestimmen. Eine Zeile hat Vorrang: Erst wenn der
+   Text auch in der kleinsten erlaubten Stufe nicht in eine Zeile passt, wird
+   umbrochen. So entstehen exakt die Größen der Vorlagen (48 pt einzeilig,
+   56 pt zweizeilig, 80 bzw. 56 pt beim Schlagwort). */
+function itkMtLayout(d) {
+  const cfg = itkMtCfg(d);
+  if (!cfg) return null;
+  const roh = String(d.textValue || '').replace(/\s+/g, ' ').trim();
+  if (!roh) return null;
+  const s = cfg.upper ? roh.toUpperCase() : roh;
+  const maxW = ITK_MT_BOX.w;
+
+  // Einzeilig: das Schlagwort sucht sich die größte passende Stufe, die
+  // Headline bleibt bei ihren 48 pt.
+  for (let fs = cfg.eineZeile || cfg.max; fs >= cfg.min; fs--) {
+    if (itkMtWidth(s, fs, cfg) <= maxW) return { cfg: cfg, fs: fs, lines: [s] };
+  }
+  if (cfg.maxLines > 1) {
+    const words = s.split(' ');
+    for (let fs = cfg.max; fs >= cfg.min; fs--) {
+      const w = itkMtWrap(words, fs, cfg, maxW);
+      if (w && itkMtWidth(w[0], fs, cfg) <= maxW && itkMtWidth(w[1], fs, cfg) <= maxW) {
+        return { cfg: cfg, fs: fs, lines: w };
+      }
+    }
+  }
+  // Notnagel: lieber kleiner als vorgesehen als über die Textbox hinaus.
+  for (let fs = cfg.min - 1; fs >= 12; fs--) {
+    if (itkMtWidth(s, fs, cfg) <= maxW) return { cfg: cfg, fs: fs, lines: [s], eng: true };
+    if (cfg.maxLines > 1) {
+      const w = itkMtWrap(s.split(' '), fs, cfg, maxW);
+      if (w && itkMtWidth(w[1], fs, cfg) <= maxW) return { cfg: cfg, fs: fs, lines: w, eng: true };
+    }
+  }
+  return { cfg: cfg, fs: 12, lines: [s], eng: true };
+}
+function itkMtLines(d) {
+  const lay = itkMtLayout(d);
+  return lay ? lay.lines.length : 1;
+}
+
+/* Grenzen der Eingabe. Ein Schlagwort sind höchstens zwei Wörter, und kein
+   Text darf so lang werden, dass er unter seine freigegebene Punktgröße
+   schrumpfen müsste. Was darüber hinausginge, wird gar nicht erst
+   angenommen – statt immer kleiner zu werden, endet die Eingabe einfach. */
+function itkMtClamp(d, wert) {
+  const cfg = itkMtCfg(d);
+  if (!cfg) return wert;
+  let s = String(wert);
+  if (cfg.maxWorte) {
+    const worte = s.trim().split(/\s+/).filter(Boolean);
+    if (worte.length > cfg.maxWorte) s = worte.slice(0, cfg.maxWorte).join(' ');
+  }
+  // Zeichenweise zurücknehmen, bis die kleinste erlaubte Stufe wieder reicht.
+  let schutz = 400;
+  while (s.trim() && schutz-- > 0) {
+    const lay = itkMtLayout({ textMode: d.textMode, textValue: s });
+    if (!lay || !lay.eng) break;
+    s = s.slice(0, -1);
+  }
+  return s;
+}
+
+/* Auf welcher Kachel sitzt der Text? Auf der, die die feste Textspalte trägt. */
+function itkMtTile(d) {
+  if (!d.tiles || !d.tiles.length) return null;
+  const cx = ITK_MT_BOX.x + ITK_MT_BOX.w / 2;
+  return d.tiles.find(t => cx >= t.x && cx <= t.x + t.w) || d.tiles[0];
+}
+
+/* Kachelaufteilung im Textmodus. Anders als sonst wird hier nicht gewürfelt:
+   Die mittlere Kachel muss die Textspalte tragen, sonst liefe der Text über
+   eine Farbkante. Links und rechts darf je eine weitere Kachel stehen. */
+function itkMtTiles(seed, n) {
+  const g = ITK_GAP / 2;
+  const L = ITK_MT_COL.x, R = ITK_MT_COL.x + ITK_MT_COL.w;
+  const y = seed.y, h = seed.h, x0 = seed.x, x1 = seed.x + seed.w;
+  if (n <= 1) return [{ x: x0, y: y, w: seed.w, h: h }];
+  if (n === 2) return [{ x: x0,    y: y, w: R - g - x0, h: h },
+                       { x: R + g, y: y, w: x1 - R - g, h: h }];
+  return [{ x: x0,    y: y, w: L - g - x0,    h: h },
+          { x: L + g, y: y, w: R - L - g * 2, h: h },
+          { x: R + g, y: y, w: x1 - R - g,    h: h }];
+}
+
+/* Fertige Geometrie des Textblocks. Senkrecht sitzt er optisch mittig in
+   seiner Kachel: ausgerichtet wird die Versalhöhe, nicht die Zeilenbox –
+   damit steht er genauso wie in den Vorlagen. */
+function itkMtBlock(m) {
+  const d = m.design;
+  const lay = itkMtLayout(d);
+  if (!lay) return null;
+  const tile = itkMtTile(d);
+  if (!tile) return null;
+  const lh = lay.fs * ITK_MT_LINE;
+  const cap = lay.fs * ITK_MT_CAP;
+  const blockH = (lay.lines.length - 1) * lh + cap;
+  const erste = tile.y + tile.h / 2 - blockH / 2 + cap;
+  // Einzeilig steht mittig, zweizeilig linksbündig – so die Vorlagen.
+  const mittig = lay.lines.length === 1;
+  return {
+    lines: lay.lines, fs: lay.fs, cfg: lay.cfg, tile: tile, eng: !!lay.eng,
+    lh: lh, cap: cap, blockH: blockH, top: erste - cap,
+    align: mittig ? 'center' : 'left',
+    x: mittig ? ITK_MT_BOX.x + ITK_MT_BOX.w / 2 : ITK_MT_BOX.x,
+    baselines: lay.lines.map((_, i) => erste + i * lh),
+    color: d.textColor
+  };
+}
 
 function itkDrawPhoto(ctx, m, clip) {
   if (!m.img) return;
@@ -707,6 +941,37 @@ function itkBuildLayers(m) {
     });
   });
 
+  // Text liegt über der Kachel, aber unter Swoosh und Icon.
+  const tb = itkMtBlock(m);
+  if (tb) {
+    L.push({
+      id: 'motivText', name: ITK_TEXT.ebenen.text, group: null,
+      hit: { kind: 'motivText', rect: { x: ITK_MT_BOX.x, y: tb.top - tb.fs * 0.25,
+                                        w: ITK_MT_BOX.w, h: tb.blockH + tb.fs * 0.5 } },
+      draw: ctx => {
+        ctx.save();
+        ctx.fillStyle = tb.color;
+        ctx.font = itkMtFont(tb.fs, tb.cfg);
+        ctx.textAlign = tb.align;
+        ctx.textBaseline = 'alphabetic';
+        tb.lines.forEach((l, i) => ctx.fillText(l, tb.x, tb.baselines[i]));
+        ctx.restore();
+      },
+      // Im SVG bleibt der Text echter Text – in Illustrator und InDesign
+      // lässt er sich damit weiterbearbeiten, nicht nur betrachten.
+      svg: () => {
+        const tsp = tb.lines.map((l, i) =>
+          '<tspan x="' + itkNum(tb.x) + '" y="' + itkNum(tb.baselines[i]) + '">' +
+          itkXmlText(l) + '</tspan>').join('');
+        return '<text font-family="TeleNeo" font-weight="800"' +
+               (tb.cfg.italic ? ' font-style="italic"' : '') +
+               ' font-size="' + itkNum(tb.fs) + '" fill="' + tb.color + '"' +
+               (tb.align === 'center' ? ' text-anchor="middle"' : '') +
+               '>' + tsp + '</text>';
+      }
+    });
+  }
+
   if (d.swoosh === 'tile' && d.tiles.length === 1) {
     const t = d.tiles[0];
     const tcid = 'itkclip-' + m.id + '-swooshtile';
@@ -769,40 +1034,63 @@ function itkBuildLayers(m) {
 function itkPushIconLayers(L, m) {
   const d = m.design;
   if (d.iconKey === 'none') return;
+  // Das Logo ist ein Icon mit zwei Ausnahmen: breite statt quadratische
+  // Trägerfläche und feste Farben – weiß auf Magenta, nicht änderbar.
+  const logo = d.iconKey === 'logo';
   const S = ITK_ICON_SIZE, g = ITK_GAP;
+  const W = logo ? itkLogoWidth() : S;
+  const bg = logo ? KBR.magenta : d.iconBg;
+  const fg = logo ? KBR.white : d.iconFg;
+  const gruppe = logo ? ITK_TEXT.ebenen.gruppeLogo : ITK_TEXT.ebenen.gruppeIcon;
   const cx = ITK_W / 2, cy = ITK_H / 2;
-  const box = { x: cx - S / 2, y: cy - S / 2, w: S, h: S };
+  const box = { x: cx - W / 2, y: cy - S / 2, w: W, h: S };
 
   L.push({
-    id: 'iconFrame', name: ITK_TEXT.ebenen.iconKontur, group: ITK_TEXT.ebenen.gruppeIcon, hit: null,
+    id: 'iconFrame', name: logo ? ITK_TEXT.ebenen.logoKontur : ITK_TEXT.ebenen.iconKontur,
+    group: gruppe, hit: null,
     draw: ctx => {
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(box.x - g, box.y - g, S + g * 2, S + g * 2);
+      ctx.fillRect(box.x - g, box.y - g, W + g * 2, S + g * 2);
     },
     svg: () => '<rect x="' + itkNum(box.x - g) + '" y="' + itkNum(box.y - g) +
-               '" width="' + (S + g * 2) + '" height="' + (S + g * 2) + '" fill="#FFFFFF"/>'
+               '" width="' + itkNum(W + g * 2) + '" height="' + (S + g * 2) + '" fill="#FFFFFF"/>'
   });
   L.push({
-    id: 'iconArea', name: itkT(ITK_TEXT.ebenen.iconFlaechePraefix, { farbe: KBR_NAMES[d.iconBg] }), group: ITK_TEXT.ebenen.gruppeIcon,
+    id: 'iconArea',
+    name: logo ? ITK_TEXT.ebenen.logoFlaeche
+               : itkT(ITK_TEXT.ebenen.iconFlaechePraefix, { farbe: KBR_NAMES[d.iconBg] }),
+    group: gruppe,
     // Der Treffer sitzt auf der Fläche, nicht auf der Glyphe: die fehlt,
-    // solange sie noch lädt.
-    hit: { kind: 'icon', rect: box },
-    draw: ctx => { ctx.fillStyle = d.iconBg; ctx.fillRect(box.x, box.y, S, S); },
-    svg: () => '<rect x="' + itkNum(box.x) + '" y="' + itkNum(box.y) + '" width="' + S +
-               '" height="' + S + '" fill="' + d.iconBg + '"/>'
+    // solange sie noch lädt. Beim Logo führt er zu keinem Dialog – dort
+    // gibt es nichts zu wählen.
+    hit: { kind: logo ? 'logo' : 'icon', rect: box },
+    draw: ctx => { ctx.fillStyle = bg; ctx.fillRect(box.x, box.y, W, S); },
+    svg: () => '<rect x="' + itkNum(box.x) + '" y="' + itkNum(box.y) + '" width="' + itkNum(W) +
+               '" height="' + S + '" fill="' + bg + '"/>'
   });
   L.push({
-    id: 'iconGlyph', name: ITK_TEXT.ebenen.iconGlyphe, group: ITK_TEXT.ebenen.gruppeIcon, hit: null,
+    id: 'iconGlyph', name: logo ? ITK_TEXT.ebenen.logoGrafik : ITK_TEXT.ebenen.iconGlyphe,
+    group: gruppe, hit: null,
     draw: ctx => {
-      const rec = itkIconImage(d.iconKey, d.iconFg);
+      const rec = itkIconImage(d.iconKey, fg);
       if (!rec) return;
-      const inner = S * 0.56;
-      const s = Math.min(inner / rec.vbW, inner / rec.vbH);
-      const iw = rec.vbW * s, ih = rec.vbH * s;
-      ctx.drawImage(rec.img, cx - iw / 2, cy - ih / 2, iw, ih);
+      const p = itkIconGlyphBox(rec.vbW, rec.vbH, logo);
+      ctx.drawImage(rec.img, cx - p.w / 2, cy - p.h / 2, p.w, p.h);
     },
     svg: () => itkIconGlyphSVG(d)
   });
+}
+
+/* Größe der Grafik auf der Trägerfläche. Icons füllen ein Quadrat, das Logo
+   behält sein breites Format und richtet sich nach der Höhe. */
+function itkIconGlyphBox(vbW, vbH, logo) {
+  if (logo) {
+    const h = ITK_ICON_SIZE * ITK_LOGO_INNER;
+    return { w: h * (vbW / vbH), h: h };
+  }
+  const inner = ITK_ICON_SIZE * 0.56;
+  const s = Math.min(inner / vbW, inner / vbH);
+  return { w: vbW * s, h: vbH * s };
 }
 
 // ---------------------------------------------------------------------
@@ -814,6 +1102,9 @@ function itkPushIconLayers(L, m) {
 function itkNum(v) { return String(Number(v.toFixed(4))); }
 function itkXmlAttr(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+}
+function itkXmlText(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function itkClipRectSVG(id, r) {
@@ -851,13 +1142,12 @@ function itkPhotoSVG(m, clipRef) {
 function itkIconGlyphSVG(d) {
   const src = itkIconSrc[d.iconKey];
   if (!src) return '';
-  const inner = ITK_ICON_SIZE * 0.56;
-  const s = Math.min(inner / src.vbW, inner / src.vbH);
-  const iw = src.vbW * s, ih = src.vbH * s;
-  return src.svg.replace(/#000000/g, d.iconFg)
-    .replace(/^<svg/i, '<svg x="' + itkNum(ITK_W / 2 - iw / 2) +
-                       '" y="' + itkNum(ITK_H / 2 - ih / 2) +
-                       '" width="' + itkNum(iw) + '" height="' + itkNum(ih) + '"');
+  const logo = d.iconKey === 'logo';
+  const p = itkIconGlyphBox(src.vbW, src.vbH, logo);
+  return src.svg.replace(/#000000/g, logo ? KBR.white : d.iconFg)
+    .replace(/^<svg/i, '<svg x="' + itkNum(ITK_W / 2 - p.w / 2) +
+                       '" y="' + itkNum(ITK_H / 2 - p.h / 2) +
+                       '" width="' + itkNum(p.w) + '" height="' + itkNum(p.h) + '"');
 }
 
 // ---------------------------------------------------------------------
@@ -1322,8 +1612,7 @@ function itkAreaThumbHTML(area) {
 function itkBuildAreaGrid() {
   const grid = document.getElementById('itk-area-grid');
   const m = itkM();
-  const hasIcon = m.design.iconKey !== 'none';
-  const list = itkAreasFor(hasIcon);
+  const list = itkAreasFor(m.design);
   grid.innerHTML = '';
   list.forEach(a => {
     const el = document.createElement('div');
@@ -1345,8 +1634,11 @@ function itkApplyArea(m, id) {
   if (!area.split) {
     d.tiles = [];
   } else {
-    d.tileCount = Math.max(area.min, Math.min(5, d.tileCount));
-    itkRebuildTiles(m, false);
+    d.tileCount = Math.max(area.min, Math.min(itkMaxTiles(d), d.tileCount));
+    // Mit Text ist der Bereichswechsel keine gestalterische Entscheidung,
+    // sondern nur eine andere Zeilenhöhe für dieselbe Kachelaufteilung –
+    // Farben und Bilder bleiben deshalb, wie sie waren, statt neu zu würfeln.
+    itkRebuildTiles(m, itkMtOn(d));
   }
   if (!itkSwooshOptionsFor(d).includes(d.swoosh)) d.swoosh = 'none';
   itkEnforceSwooshColor(m);
@@ -1502,6 +1794,8 @@ const ITK_SWOOSH_OPTS = [
 ];
 
 function itkSwooshOptionsFor(d) {
+  // Mit Text ist die Kachel belegt: ein Swoosh läge darunter oder darüber.
+  if (itkMtOn(d)) return ['none'];
   const area = itkArea(d.areaId);
   const n = area && area.split ? d.tiles.length : 0;
   const hasIcon = d.iconKey !== 'none';
@@ -1580,6 +1874,103 @@ function itkBuildSwooshChips() {
 // ---------------------------------------------------------------------
 // 13. FARB-POPUP (Doppelklick auf eine Fläche im Vorschaufenster)
 // ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+// 16b. TEXT DIREKT IM MOTIV ÄNDERN
+// Über dem Text liegt beim Bearbeiten ein Eingabefeld mit unsichtbarer
+// Schrift: Zu sehen ist weiter der Text, den das Canvas darunter bei jedem
+// Tastendruck neu zeichnet – sichtbar bleibt nur der Cursor.
+// ---------------------------------------------------------------------
+let itkMtFontOk = true;
+
+function itkMtEditEl() { return document.getElementById('itk-motiv-text'); }
+
+function itkMtEditOpen() {
+  const m = itkM();
+  if (!itkMtBlock(m)) return;
+  const ta = itkMtEditEl();
+  ta.value = m.design.textValue || '';
+  ta.style.display = 'block';
+  itkMtEditPlace();
+  ta.focus();
+  ta.select();
+}
+
+function itkMtEditPlace() {
+  const ta = itkMtEditEl();
+  if (ta.style.display === 'none') return;
+  const tb = itkMtBlock(itkM());
+  if (!tb) return;
+  const r = itkCanvas.getBoundingClientRect();
+  const k = r.width / ITK_W;                 // Anzeigemaßstab des Motivs
+  const c = itkMtMeasureCtx();
+  c.font = itkMtFont(tb.fs, tb.cfg);
+  const mm = c.measureText('Hg');
+  const asc = mm.fontBoundingBoxAscent || tb.fs * 0.9;
+  const desc = mm.fontBoundingBoxDescent || tb.fs * 0.25;
+  // Oberkante so setzen, dass die erste Grundlinie des Feldes genau auf der
+  // Grundlinie im Motiv liegt.
+  const top = tb.baselines[0] - ((tb.lh - (asc + desc)) / 2 + asc);
+  ta.style.left = itkNum(ITK_MT_BOX.x * k) + 'px';
+  ta.style.width = itkNum(ITK_MT_BOX.w * k) + 'px';
+  ta.style.top = itkNum(top * k) + 'px';
+  ta.style.height = itkNum(tb.lh * tb.lines.length * k) + 'px';
+  ta.style.fontSize = itkNum(tb.fs * k) + 'px';
+  ta.style.lineHeight = itkNum(tb.lh * k) + 'px';
+  ta.style.fontStyle = tb.cfg.italic ? 'italic' : 'normal';
+  ta.style.textTransform = tb.cfg.upper ? 'uppercase' : 'none';
+  ta.style.textAlign = tb.align;
+  ta.style.caretColor = tb.color;
+}
+
+function itkMtEditClose() {
+  const ta = itkMtEditEl();
+  if (ta) ta.style.display = 'none';
+}
+
+/* Eine Änderung am Text wirkt sofort: Umbruch, Schriftgröße und – bei zwei
+   Zeilen – auch der Kachelbereich. */
+function itkMtApplyValue(wert, ausFeld) {
+  const m = itkM();
+  const sauber = itkMtClamp(m.design, wert);
+  const vorher = String(m.design.textValue || '');
+  // Eine Eingabe, die die Grenze reißt, wird gar nicht erst angenommen – sonst
+  // rutschten die nächsten Zeichen ins vorherige Wort. Nur in ein leeres Feld
+  // wird übernommen, was passt; so bleibt Einfügen brauchbar.
+  const neu = (sauber === wert || !vorher.trim()) ? sauber : vorher;
+  m.design.textValue = neu;
+  // Beide Eingabestellen nachziehen. Zurückgenommen wird immer am Ende, die
+  // Schreibmarke darf deshalb stehen bleiben, wo sie war.
+  [document.getElementById('itk-text-input'), itkMtEditEl()].forEach(el => {
+    if (!el || el.value === neu) return;
+    const pos = el === ausFeld ? el.selectionStart : null;
+    el.value = neu;
+    if (pos != null) {
+      const p = Math.min(pos, neu.length);
+      try { el.setSelectionRange(p, p); } catch (e) { /* unsichtbares Feld */ }
+    }
+  });
+  itkMtEnforceArea(m);
+  // Ob ein oder zwei Zeilen: davon hängt ab, welche Kachelbereiche überhaupt
+  // zur Wahl stehen – das Raster muss bei jeder Eingabe mitgehen.
+  itkBuildAreaGrid();
+  itkRedraw();
+  itkMtEditPlace();
+  itkSyncSteps();
+}
+
+/* Die Hausschrift wird nicht mitgeliefert, sondern vom Rechner geholt. Erst
+   wenn sie wirklich da ist, stimmen Breitenmessung und Schriftgröße. */
+function itkMtLoadFont() {
+  if (!document.fonts) return Promise.resolve();
+  const proben = ['italic 800 80px "TeleNeo Motiv"', '800 48px "TeleNeo Motiv"'];
+  return Promise.all(proben.map(f => document.fonts.load(f, 'Hg')))
+    .then(() => {
+      itkMtFontOk = proben.every(f => document.fonts.check(f, 'Hg'));
+      itkRedraw();
+    })
+    .catch(() => {});
+}
+
 function itkCanvasPoint(e) {
   const r = itkCanvas.getBoundingClientRect();
   return { x: (e.clientX - r.left) * (ITK_W / r.width),
@@ -1636,12 +2027,20 @@ function itkOpenColorPop(hit, e) {
     apply = c => { d.tiles[hit.index].color = c; d.tiles[hit.index].src = null;
                    itkEnforceSwooshColor(m); };
     // Bilder in einzelnen Kacheln gibt es nur im Modus ohne Foto – sonst
-    // konkurrierten sie mit dem Motiv darunter.
+    // konkurrierten sie mit dem Motiv darunter. Und selbst dort nur bis zu
+    // einer Höchstzahl, sonst bleibt vom eigentlichen Kachel-Look nichts übrig.
     if (itkIsFullTiles(d)) {
-      extra = { hasImg: !!d.tiles[hit.index].src, index: hit.index };
-      hint = d.tiles[hit.index].src
-        ? ITK_TEXT.popup.kachelBildErsetzenHinweis
-        : ITK_TEXT.popup.kachelOderBildHinweis;
+      const hasImg = !!d.tiles[hit.index].src;
+      const max = itkMaxTileImages(d.tiles.length);
+      const belegt = d.tiles.filter((t, i) => i !== hit.index && t.src).length;
+      const frei = hasImg || belegt < max;
+      if (frei) {
+        extra = { hasImg, index: hit.index };
+        hint = hasImg ? ITK_TEXT.popup.kachelBildErsetzenHinweis : ITK_TEXT.popup.kachelOderBildHinweis;
+      } else {
+        hint = max === 1 ? ITK_TEXT.popup.kachelBildLimitHinweisEinzahl
+                          : itkT(ITK_TEXT.popup.kachelBildLimitHinweisMehrzahl, { n: max });
+      }
     }
   } else if (hit.kind === 'icon') {
     options = KBR_PRIMARIES; current = d.iconBg;
@@ -2032,7 +2431,12 @@ function itkInitCanvasInteraction() {
 
   itkCanvas.addEventListener('dblclick', e => {
     const hit = itkHitTest(itkCanvasPoint(e));
-    if (hit) itkOpenColorPop(hit, e); else itkClosePop();
+    itkClosePop();
+    // Auf dem Text wird getippt, nicht gefärbt. Auf dem Logo gibt es nichts
+    // zu wählen – es steht immer weiß auf Magenta.
+    if (hit && hit.kind === 'motivText') { itkMtEditOpen(); return; }
+    if (hit && hit.kind === 'logo') return;
+    if (hit) itkOpenColorPop(hit, e);
   });
 
   itkCanvas.addEventListener('mousedown', e => {
@@ -2135,6 +2539,9 @@ function itkInitControls() {
     document.getElementById('itk-zoom-slider').min = 5;
     itkSetZoom(1);
     m.design.iconKey = 'none';
+    // Text braucht eine der beiden unteren Kacheln als Trägerfläche – die
+    // gibt es im Modus „Nur Kacheln“ nicht mehr.
+    m.design.textMode = 'none';
     if (!itkIsFullTiles(m.design)) m.design.areaBeforeFull = m.design.areaId;
     itkApplyArea(m, 'full');
     itkSyncAll();
@@ -2198,6 +2605,23 @@ function itkInitControls() {
     }
     itkSelectIcon(iconSel.value);
   });
+
+  const textSel = document.getElementById('itk-text-select');
+  textSel.addEventListener('change', () => itkSelectTextMode(textSel.value));
+
+  const textInput = document.getElementById('itk-text-input');
+  textInput.addEventListener('input', () => itkMtApplyValue(textInput.value, textInput));
+
+  const textArea = itkMtEditEl();
+  textArea.addEventListener('input', () => {
+    // Zeilenumbrüche entstehen aus der Breite, nicht aus der Eingabe.
+    itkMtApplyValue(textArea.value.replace(/\n/g, ' '), textArea);
+  });
+  textArea.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); textArea.blur(); }
+  });
+  textArea.addEventListener('blur', () => { itkMtEditClose(); itkSyncAll(); });
+  window.addEventListener('resize', itkMtEditPlace);
   document.getElementById('itk-icon-file-input').addEventListener('change', e => {
     itkHandleIconUpload(e.target.files[0]); e.target.value = '';
   });
@@ -2248,11 +2672,39 @@ function itkInitControls() {
   document.getElementById('itk-tutorial-btn').addEventListener('click', () => itkTutStart(0));
 }
 
+/* Textart wählen. Icon und Text schließen sich aus, und der Text braucht
+   einen der beiden unteren Kachelbereiche. */
+function itkSelectTextMode(mode) {
+  const m = itkM(), d = m.design;
+  const vorher = d.textMode;
+  d.textMode = mode;
+  if (itkMtOn(d)) {
+    d.iconKey = 'none';
+    const vorgabe = mode === 'schlagwort' ? ITK_TEXT.text.vorgabeSchlagwort
+                                          : ITK_TEXT.text.vorgabeZweizeiler;
+    // Eigene Eingaben überleben den Wechsel der Textart, Vorgaben nicht.
+    const alt = String(d.textValue || '').trim();
+    if (!alt || alt === ITK_TEXT.text.vorgabeSchlagwort || alt === ITK_TEXT.text.vorgabeZweizeiler) {
+      d.textValue = vorgabe;
+    }
+    // Ein übernommener Text kann für die neue Textart zu lang sein.
+    d.textValue = itkMtClamp(d, d.textValue);
+    d.tileCount = Math.max(1, Math.min(ITK_MT_MAX_TILES, d.tileCount));
+    itkApplyArea(m, d.areaId === 'bottom-l' ? 'bottom-l' : 'bottom-s');
+    itkMtEnforceArea(m);
+    if (!itkMtFontOk) itkToast(ITK_TEXT.text.fehltSchriftToast);
+  } else if (vorher !== 'none') {
+    itkMtEditClose();
+  }
+  itkSyncAll();
+}
+
 function itkSelectIcon(key) {
   const m = itkM(), d = m.design;
   const had = d.iconKey !== 'none';
   d.iconKey = key;
   const has = key !== 'none';
+  if (has) d.textMode = 'none';
   document.getElementById('itk-icon-note').style.display = has ? '' : 'none';
 
   // Der Wechsel Icon/kein Icon tauscht die Menge der erlaubten Bereiche.
@@ -2457,7 +2909,8 @@ async function itkExportPSD(m) {
     itkToast(ITK_TEXT.export.psdBausteinFehltToast); return;
   }
   itkToast(ITK_TEXT.export.psdWirdGebautToast);
-  await itkEnsureIcon(m.design.iconKey, m.design.iconFg);
+  await itkEnsureIcon(m.design.iconKey, m.design.iconKey === 'logo' ? KBR.white : m.design.iconFg);
+  await itkMtLoadFont();
 
   const children = itkPsdTree(m);
 
@@ -2507,13 +2960,33 @@ function itkSyncAll() {
   itkHoverClear();
   const area = itkArea(d.areaId);
 
-  document.getElementById('itk-icon-select').value = d.iconKey;
-  document.getElementById('itk-icon-note').style.display = d.iconKey === 'none' ? 'none' : '';
+  const iconSel = document.getElementById('itk-icon-select');
+  const textSel = document.getElementById('itk-text-select');
+  iconSel.value = d.iconKey;
+  textSel.value = itkMtOn(d) ? d.textMode : 'none';
+  // Icon und Text schließen sich aus – das jeweils andere Menü wird gesperrt.
+  iconSel.disabled = itkMtOn(d);
+  textSel.disabled = d.iconKey !== 'none';
+  // Der Hinweis zur Mitte gilt nur für echte Icons, nicht für das breite Logo.
+  document.getElementById('itk-icon-note').style.display =
+    (d.iconKey === 'none' || d.iconKey === 'logo') ? 'none' : '';
+
+  const textFeld = document.getElementById('itk-text-field');
+  const textInput = document.getElementById('itk-text-input');
+  textFeld.style.display = itkMtOn(d) ? '' : 'none';
+  document.getElementById('itk-text-note-schlagwort').style.display =
+    d.textMode === 'schlagwort' ? '' : 'none';
+  if (textInput.value !== (d.textValue || '')) textInput.value = d.textValue || '';
+  // Mit Text ist der Kachelbereich kein Auswahlfeld mehr, sondern folgt
+  // automatisch der Zeilenzahl – die Auswahl hätte hier nichts mehr zu tun.
+  document.getElementById('itk-area-field').style.display = itkMtOn(d) ? 'none' : '';
 
   const tiles = document.getElementById('itk-tiles-slider');
   if (area && area.split) {
+    const max = itkMaxTiles(d);
     tiles.min = area.min;
-    tiles.value = Math.max(area.min, Math.min(5, d.tiles.length || d.tileCount));
+    tiles.max = max;
+    tiles.value = Math.max(area.min, Math.min(max, d.tiles.length || d.tileCount));
     document.getElementById('itk-tiles-val').textContent = tiles.value;
   }
 
@@ -2575,7 +3048,13 @@ const ITK_TUT = [
     before: () => itkOpenStep('design') },
 
   { sel: '#itk-area-grid', title: ITK_TEXT.tutorial.schritt8Titel, text: ITK_TEXT.tutorial.schritt8Text,
-    before: () => itkOpenStep('design') },
+    before: () => {
+      // Mit aktivem Text gibt es dieses Raster gar nicht – der Bereich
+      // folgt dann automatisch der Zeilenzahl. Für die Erklärung erst
+      // wieder auf eine echte Designoption wechseln.
+      itkSelectTextMode('none');
+      itkOpenStep('design');
+    } },
 
   { sel: '#itk-step-kacheln', title: ITK_TEXT.tutorial.schritt9Titel, text: ITK_TEXT.tutorial.schritt9Text,
     before: () => {
@@ -2591,6 +3070,9 @@ const ITK_TUT = [
   { sel: '#itk-step-swoosh', title: ITK_TEXT.tutorial.schritt10Titel, text: ITK_TEXT.tutorial.schritt10Text,
     before: () => {
       const m = itkM();
+      // Mit Text im Motiv gibt es keinen Swoosh – für die Erklärung also
+      // erst den Text beiseitelegen.
+      m.design.textMode = 'none';
       // Die L-Bereiche verlangen mindestens zwei Kacheln – dort wäre der
       // Swoosh gesperrt. Für die Erklärung auf einen einteilbaren Bereich
       // wechseln.
@@ -2715,6 +3197,7 @@ function itkMount() {
   itkInitControls();
   itkInitTutorial();
   itkSyncAll();
+  itkMtLoadFont();
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', itkMount);

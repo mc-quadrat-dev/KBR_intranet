@@ -18,6 +18,20 @@
   font-weight: 700; font-style: normal; font-display: swap;
 }
 
+/* Hausschrift für den Text im Motiv. Bewusst nur local(): die Lizenz erlaubt
+   kein Mitliefern, jeder Telekom-Rechner hat TeleNeo aber installiert. Fehlt
+   sie, zeichnet der Generator in einer Ersatzschrift und sagt das auch. */
+@font-face {
+  font-family: 'TeleNeo Motiv';
+  src: local('TeleNeo ExtraBold'), local('TeleNeo-ExtraBold');
+  font-weight: 800; font-style: normal;
+}
+@font-face {
+  font-family: 'TeleNeo Motiv';
+  src: local('TeleNeo ExtraBold Italic'), local('TeleNeo-ExtraBoldItalic');
+  font-weight: 800; font-style: italic;
+}
+
 :root {
   --itk-bg:     #0a0a0a;
   --itk-line:   rgba(255, 255, 255, 0.14);
@@ -270,6 +284,21 @@ input[type=range]::-moz-range-thumb {
 .itk-step.open .itk-step-body { display: flex; }
 .itk-field { display: flex; flex-direction: column; gap: 8px; }
 .itk-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+/* Icon- und Textmenü nebeneinander, je zur Hälfte */
+.itk-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.itk-duo .itk-select { min-width: 0; }
+.itk-select:disabled { opacity: .4; cursor: default; }
+
+/* Textbearbeitung direkt im Motiv: Schrift unsichtbar, nur der Cursor steht.
+   Sichtbar ist der Text, den das Canvas darunter live neu zeichnet. */
+.itk-motiv-text {
+  position: absolute; z-index: 5; margin: 0; padding: 0; border: 0;
+  background: transparent; color: transparent; overflow: hidden; resize: none;
+  font-family: 'TeleNeo Motiv', 'TeleNeo', sans-serif; font-weight: 800;
+  outline: 1px dashed rgba(255,255,255,.55); outline-offset: 6px;
+}
+.itk-motiv-text::selection { background: rgba(255,255,255,.35); }
 
 /* ==================================================== Auswahlraster */
 .itk-choice-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
