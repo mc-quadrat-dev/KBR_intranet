@@ -315,6 +315,26 @@
   </div>
 </div>
 
+<!-- Hinweisfenster: TeleNeo muss lokal installiert sein, sonst greift die
+     Ersatzschrift. Gleiche Optik wie das Tutorial, aber ohne Zielelement –
+     die Karte sitzt deshalb per .itk-info-card fest in der Bildschirmmitte. -->
+<div class="itk-tut-mask" id="itk-font-hint-mask">
+  <div class="itk-tut-card itk-info-card" id="itk-font-hint-card">
+    <button class="itk-tut-close" id="itk-font-hint-close" title="Hinweis schließen" aria-label="Hinweis schließen" data-t-title="text.fontHinweisSchliessenTitel">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <h3 data-t="text.fontHinweisTitel">Voraussetzung: TeleNeo muss installiert sein</h3>
+    <div data-t-html="text.fontHinweisText"></div>
+    <label class="itk-check" id="itk-font-hint-checkwrap">
+      <input type="checkbox" id="itk-font-hint-dismiss">
+      <span data-t="text.fontHinweisNichtWiederAnzeigen">Nicht wieder anzeigen</span>
+    </label>
+    <div class="itk-tut-nav" style="justify-content:flex-end">
+      <button class="ctrl-btn primary" id="itk-font-hint-ok" data-t="text.fontHinweisOk">Verstanden</button>
+    </div>
+  </div>
+</div>
+
 <div class="itk-toast" id="itk-toast"></div>
 
 <input type="file" id="itk-file-input" accept="image/*" style="display:none">

@@ -457,6 +457,11 @@ input[type=range]::-moz-range-thumb {
 .itk-tut-skip { background: none; border: none; color: var(--itk-t3); font-family: inherit; font-size: 11px; cursor: pointer; padding: 4px; }
 .itk-tut-skip:hover { color: #fff; }
 
+/* Eigenständiges Hinweisfenster (z. B. Schrift-Hinweis): dieselbe Karte wie
+   im Tutorial, aber ohne Zielelement zum Anleuchten – deshalb fest mittig. */
+.itk-info-card { left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.itk-info-card .itk-check { margin-top: 6px; }
+
 /* ==================================================== Mobile */
 @media (max-width: 900px) {
   html, body { height: auto; overflow: visible; }

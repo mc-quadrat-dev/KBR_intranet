@@ -124,7 +124,15 @@ const ITK_TEXT = {
     // Steht nur bei der Textart „Schlagwort“ unter dem Eingabefeld.
     hinweisSchlagwort: 'Ein Schlagwort steht in <b>höchstens zwei Wörtern</b>.',
     // Erscheint nur, wenn die Hausschrift auf dem Rechner fehlt.
-    fehltSchriftToast: 'TeleNeo nicht gefunden – Text erscheint in einer Ersatzschrift'
+    fehltSchriftToast: 'TeleNeo nicht gefunden – Text erscheint in einer Ersatzschrift',
+
+    // Hinweisfenster, das beim ersten Aktivieren von Text erscheint (bis auf
+    // „Nicht wieder anzeigen“ geklickt wird).
+    fontHinweisTitel: 'Voraussetzung: TeleNeo muss installiert sein',
+    fontHinweisText: '<p>Der Text im Motiv nutzt die Hausschrift TeleNeo ExtraBold. Sie muss auf dem Rechner installiert sein, auf dem dieses Werkzeug geöffnet wird – mitgeliefert wird sie aus Lizenzgründen nicht.</p><p><b>Safari</b> lässt aus Datenschutzgründen grundsätzlich keine selbst installierten Schriften zu, selbst wenn TeleNeo vorhanden ist. In <b>Chrome</b> und <b>Firefox</b> funktioniert es. Fehlt die Schrift, erscheint der Text automatisch in einer Ersatzschrift.</p>',
+    fontHinweisNichtWiederAnzeigen: 'Nicht wieder anzeigen',
+    fontHinweisOk: 'Verstanden',
+    fontHinweisSchliessenTitel: 'Hinweis schließen'
   },
 
   // ============================ Reiter 3 · Kacheln ==========================

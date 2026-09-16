@@ -2670,6 +2670,27 @@ function itkInitControls() {
   });
 
   document.getElementById('itk-tutorial-btn').addEventListener('click', () => itkTutStart(0));
+
+  document.getElementById('itk-font-hint-close').addEventListener('click', itkFontHintClose);
+  document.getElementById('itk-font-hint-ok').addEventListener('click', itkFontHintClose);
+}
+
+/* Hinweis auf die TeleNeo-Voraussetzung: erscheint einmalig beim ersten
+   Aktivieren von Text, bis „Nicht wieder anzeigen“ angehakt wurde. Browser-
+   lokal gemerkt, nach demselben Muster wie die Vorlagen (ITK_TPL_KEY). */
+const ITK_FONT_HINT_KEY = 'kbr_itk_text_font_hint_v1';
+function itkFontHintDismissed() {
+  try { return localStorage.getItem(ITK_FONT_HINT_KEY) === '1'; }
+  catch (e) { return false; }
+}
+function itkFontHintShow() {
+  document.getElementById('itk-font-hint-mask').classList.add('show');
+}
+function itkFontHintClose() {
+  document.getElementById('itk-font-hint-mask').classList.remove('show');
+  if (document.getElementById('itk-font-hint-dismiss').checked) {
+    try { localStorage.setItem(ITK_FONT_HINT_KEY, '1'); } catch (e) { /* privater Modus o. ä. */ }
+  }
 }
 
 /* Textart wählen. Icon und Text schließen sich aus, und der Text braucht
@@ -2693,6 +2714,9 @@ function itkSelectTextMode(mode) {
     itkApplyArea(m, d.areaId === 'bottom-l' ? 'bottom-l' : 'bottom-s');
     itkMtEnforceArea(m);
     if (!itkMtFontOk) itkToast(ITK_TEXT.text.fehltSchriftToast);
+    // Text war aus und wird gerade erst eingeschaltet: einmalig auf die
+    // TeleNeo-Voraussetzung hinweisen.
+    if (vorher === 'none' && !itkFontHintDismissed()) itkFontHintShow();
   } else if (vorher !== 'none') {
     itkMtEditClose();
   }
